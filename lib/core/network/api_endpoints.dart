@@ -24,11 +24,22 @@ class ApiEndpoints {
   static String boardById(String id) => '/boards/$id';
 
   // =======================
+  // BOARD MEMBERS
+  // =======================
+  static String membersByBoard(String boardId) =>
+      '/boards/$boardId/members';
+
+  static String memberByBoardAndUser(String boardId, String userId) =>
+      '/boards/$boardId/members/$userId';
+
+  // =======================
   // COLUMNS
   // =======================
 
   static String columnsByBoard(String boardId) =>
       '/boards/$boardId/columns';
+
+  static String columnById(String id) => '/columns/$id';
 
   // =======================
   // CARDS

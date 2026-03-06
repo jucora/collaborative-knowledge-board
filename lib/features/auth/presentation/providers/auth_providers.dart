@@ -15,18 +15,22 @@ Provider<AuthRemoteDataSource>((ref) {
   );
 });
 
+const useFake = true; // Change to false to use real implementation.
+
 /// Auth Repository Provider
 final authRepositoryProvider =
 Provider<AuthRepository>((ref) {
 
   final secureStorage = ref.read(secureStorageProvider);
-  const useFake = true; // Change to false to use real implementation.
 
   if (useFake) {
     return FakeAuthRepositoryImpl(
       secureStorage: secureStorage,
     );
   }
+  return throw UnimplementedError(
+    'Implement AuthRepository when using a real API',
+  );
 });
 
 /// Login UseCase Provider
