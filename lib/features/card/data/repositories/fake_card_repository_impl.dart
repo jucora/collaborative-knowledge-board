@@ -1,17 +1,16 @@
 import 'package:collaborative_knowledge_board/core/error/failures.dart';
+import 'package:collaborative_knowledge_board/features/card/data/datasources/fake_card_datasource.dart';
 import 'package:collaborative_knowledge_board/features/card/domain/entities/card_item.dart';
 import 'package:collaborative_knowledge_board/features/card/domain/repositories/card_repository.dart';
 import 'package:collaborative_knowledge_board/features/comment/domain/entities/comment.dart';
 import 'package:dartz/dartz.dart';
-import '../../../../core/fake_data/fake_data_generator.dart';
-import '../../../../core/fake_data/fake_database.dart';
 
 class FakeCardRepositoryImpl extends CardRepository {
 
-  late final FakeDatabase _db;
+  FakeCardDatasource? datasource;
 
-  FakeBoardRepositoryImpl() {
-    _db = FakeDataGenerator.generate();
+  FakeCardRepositoryImpl(FakeCardDatasource datasource){
+    this.datasource = datasource;
   }
 
   @override
@@ -40,9 +39,9 @@ class FakeCardRepositoryImpl extends CardRepository {
     try {
       await Future.delayed(const Duration(milliseconds: 500));
 
-      final cards = _db.cards.where((c) => c.columnId == columnId).toList();
+      final cards = await datasource?.getCardsByColumn(columnId);
 
-      return Right(List.unmodifiable(cards));
+      return Right(cards!);
     } catch (e) {
       return Left(ServerFailure('Failed to load board cards'));
     }

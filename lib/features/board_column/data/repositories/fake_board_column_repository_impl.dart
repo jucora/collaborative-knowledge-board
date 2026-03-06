@@ -1,3 +1,4 @@
+import 'package:collaborative_knowledge_board/features/board_column/data/datasources/fake_board_column_datasource.dart';
 import 'package:collaborative_knowledge_board/features/board_column/domain/entities/board_column.dart';
 import 'package:collaborative_knowledge_board/features/board_column/domain/repositories/board_column_repository.dart';
 import 'package:collaborative_knowledge_board/features/card/domain/entities/card_item.dart';
@@ -8,6 +9,11 @@ import '../../../../core/fake_data/fake_database.dart';
 
 class FakeBoardColumnRepositoryImpl implements BoardColumnRepository {
 
+  FakeBoardColumnDatasource? datasource;
+  FakeBoardColumnRepositoryImpl(FakeBoardColumnDatasource datasource){
+    this.datasource = datasource;
+  }
+
   late final FakeDatabase _db;
 
   FakeBoardRepositoryImpl() {
@@ -15,13 +21,13 @@ class FakeBoardColumnRepositoryImpl implements BoardColumnRepository {
   }
 
   @override
-  Future<Either<Failure, List<BoardColumn>>> getBoardColumns(boardId) async {
+  Future<Either<Failure, List<BoardColumn>>> getBoardColumns(String boardId) async {
     try {
-      await Future.delayed(const Duration(milliseconds: 500));
+      final columns = await datasource?.getColumnsByBoard(boardId);
 
-      return Right(List.unmodifiable(_db.columns));
+      return Right(columns!);
     } catch (e) {
-      return Left(ServerFailure('Failed to load board columns'));
+      return Left('Failed to load board columns' as Failure);
     }
   }
 
