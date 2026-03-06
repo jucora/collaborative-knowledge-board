@@ -1,6 +1,6 @@
 import 'package:collaborative_knowledge_board/features/auth/domain/entities/auth_session.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'auth_dependencies.dart';
+import 'auth_providers.dart';
 
 class AuthNotifier extends AsyncNotifier<AuthSession?> {
 
