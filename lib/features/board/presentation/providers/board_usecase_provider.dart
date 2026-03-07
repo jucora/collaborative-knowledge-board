@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/usecases/delete_board_usecase.dart';
 import '../../domain/usecases/get_boards_usecase.dart';
-import 'fake_board_repository_provider.dart';
+import 'board_repository_provider.dart';
 
 // Get boards use case provider
 final getBoardsUseCaseProvider =
