@@ -2,18 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/error/failures.dart';
-import '../../data/repositories/fake_board_repository_impl.dart';
-import '../../domain/entities/board.dart';
-import '../providers/board_notifier.dart';
-
-final boardNotifierProvider =
-AsyncNotifierProvider<BoardNotifier, List<Board>>(
-      () {
-    final repository = FakeBoardRepositoryImpl();
-
-    return BoardNotifier(repository);
-  },
-);
+import '../providers/board_notifier_provider.dart';
 
 class BoardDashboardPage extends ConsumerWidget {
   const BoardDashboardPage({super.key});

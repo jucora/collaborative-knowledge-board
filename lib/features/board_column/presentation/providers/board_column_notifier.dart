@@ -11,7 +11,7 @@ class BoardColumnNotifier extends FamilyAsyncNotifier<List<BoardColumn>, String>
   @override
   Future<List<BoardColumn>> build(String boardId) async {
 
-    getBoardColumns = ref.read(getBoardColumnsUseCaseProvider);
+    getBoardColumns = ref.read(getBoardColumnsUseCaseProviderInternal);
 
     final result = await getBoardColumns(boardId);
 

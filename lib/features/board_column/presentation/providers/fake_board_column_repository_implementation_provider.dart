@@ -3,24 +3,9 @@ import '../../../../core/fake_data/fake_database_provider.dart';
 import '../../data/datasources/fake_board_column_datasource.dart';
 import '../../data/repositories/fake_board_column_repository_impl.dart';
 import '../../domain/entities/board_column.dart';
-import '../../domain/repositories/board_column_repository.dart';
 import '../../domain/usecases/get_board_columns_usecase.dart';
 
-//Fake Board Column Repository Provider
-final boardColumnRepositoryProvider =
-Provider<BoardColumnRepository>((ref) {
-
-  final database = ref.watch(fakeDatabaseProvider);
-
-  final datasource = FakeBoardColumnDatasource(database);
-
-  return FakeBoardColumnRepositoryImpl(datasource);
-
-});
-
-// Fake Board Columns Provider
-
-final boardColumnsProvider =
+final getBoardColumnsUseCaseProvider =
 FutureProvider.family<List<BoardColumn>, String>((ref, boardId) async {
 
   final database = ref.watch(fakeDatabaseProvider);

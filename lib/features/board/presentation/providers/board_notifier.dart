@@ -1,15 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/board.dart';
-import '../../domain/repositories/board_repository.dart';
+import 'board_usecase_provider.dart';
 
 class BoardNotifier extends AsyncNotifier<List<Board>> {
-  late final BoardRepository repository;
-
-  BoardNotifier(this.repository);
 
   @override
   Future<List<Board>> build() async {
-    final result = await repository.getBoards();
+    final useCase = ref.read(getBoardsUseCaseProvider);
+
+    final result = await useCase();
 
     return result.fold(
           (failure) => throw failure,
@@ -20,7 +19,9 @@ class BoardNotifier extends AsyncNotifier<List<Board>> {
   Future<void> refreshBoards() async {
     state = const AsyncLoading();
 
-    final result = await repository.getBoards();
+    final useCase = ref.read(getBoardsUseCaseProvider);
+
+    final result = await useCase();
 
     state = result.fold(
           (failure) => AsyncError(failure, StackTrace.current),
@@ -29,12 +30,16 @@ class BoardNotifier extends AsyncNotifier<List<Board>> {
   }
 
   Future<void> deleteBoard(String boardId) async {
-    final result = await repository.deleteBoard(boardId);
+    final useCase = ref.read(deleteBoardUseCaseProvider);
+
+    final result = await useCase(boardId);
 
     result.fold(
-          (failure) {},
-          (_) async {
-        await refreshBoards();
+          (failure) => throw failure.message,
+          (_) {
+        state = state.whenData(
+              (boards) => boards.where((b) => b.id != boardId).toList(),
+        );
       },
     );
   }

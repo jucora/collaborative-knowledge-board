@@ -4,28 +4,19 @@ import 'package:collaborative_knowledge_board/features/board_column/domain/repos
 import 'package:collaborative_knowledge_board/features/card/domain/entities/card_item.dart';
 import 'package:dartz/dartz.dart';
 import '../../../../core/error/failures.dart';
-import '../../../../core/fake_data/fake_data_generator.dart';
-import '../../../../core/fake_data/fake_database.dart';
 
 class FakeBoardColumnRepositoryImpl implements BoardColumnRepository {
 
-  FakeBoardColumnDatasource? datasource;
-  FakeBoardColumnRepositoryImpl(FakeBoardColumnDatasource datasource){
-    this.datasource = datasource;
-  }
+  final FakeBoardColumnDatasource datasource;
+  late List<BoardColumn> columns = [];
 
-  late final FakeDatabase _db;
-
-  FakeBoardRepositoryImpl() {
-    _db = FakeDataGenerator.generate();
-  }
+  FakeBoardColumnRepositoryImpl(this.datasource);
 
   @override
   Future<Either<Failure, List<BoardColumn>>> getBoardColumns(String boardId) async {
+    columns = await datasource.getColumnsByBoard(boardId) ?? [];
     try {
-      final columns = await datasource?.getColumnsByBoard(boardId);
-
-      return Right(columns!);
+      return Right(columns);
     } catch (e) {
       return Left('Failed to load board columns' as Failure);
     }
@@ -46,15 +37,15 @@ class FakeBoardColumnRepositoryImpl implements BoardColumnRepository {
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         boardId: 'board1',
         title: title,
-        position: _db.columns.length,
+        position: columns.length,
         cards: [],
       );
 
-      _db.columns.add(newBoardColumn);
+      columns.add(newBoardColumn);
 
       return Right(newBoardColumn);
     } catch (e) {
-      return Left(ServerFailure('Failed to create board column'));
+      return const Left(ServerFailure('Failed to create board column'));
     }
   }
 
@@ -74,17 +65,17 @@ class FakeBoardColumnRepositoryImpl implements BoardColumnRepository {
     try {
       await Future.delayed(const Duration(milliseconds: 300));
 
-      final index = _db.columns.indexWhere((b) => b.id == columnId);
+      final index = columns.indexWhere((b) => b.id == columnId);
 
       if (index == -1) {
-        return Left(ServerFailure('Board column not found'));
+        return const Left(ServerFailure('Board column not found'));
       }
 
-      _db.columns.removeAt(index);
+      columns.removeAt(index);
 
       return const Right(null);
     } catch (e) {
-      return Left(ServerFailure('Failed to delete board column'));
+      return const Left(ServerFailure('Failed to delete board column'));
     }
   }
 }

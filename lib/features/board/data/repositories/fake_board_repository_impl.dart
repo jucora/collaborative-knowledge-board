@@ -1,27 +1,25 @@
+import 'package:collaborative_knowledge_board/features/board/data/datasources/fake_board_datasource.dart';
 import 'package:dartz/dartz.dart';
 import '../../../../core/error/failures.dart';
-import '../../../../core/fake_data/fake_data_generator.dart';
-import '../../../../core/fake_data/fake_database.dart';
 import '../../domain/entities/board.dart';
 import '../../domain/repositories/board_repository.dart';
 
 class FakeBoardRepositoryImpl implements BoardRepository {
 
-  late final FakeDatabase _db;
+  List<Board> boards = [];
 
-  FakeBoardRepositoryImpl() {
-    _db = FakeDataGenerator.generate();
+  FakeBoardRepositoryImpl(FakeBoardDataSource datasource) {
+    boards = datasource.database?.boards ?? [];
   }
-
 
   @override
   Future<Either<Failure, List<Board>>> getBoards() async {
     try {
       await Future.delayed(const Duration(milliseconds: 500));
 
-      return Right(List.unmodifiable(_db.boards));
+      return Right(List.unmodifiable(boards));
     } catch (e) {
-      return Left(ServerFailure('Failed to load boards'));
+      return const Left(ServerFailure('Failed to load boards'));
     }
   }
 
@@ -43,11 +41,11 @@ class FakeBoardRepositoryImpl implements BoardRepository {
         members: [],
       );
 
-      _db.boards.add(newBoard);
+      boards.add(newBoard);
 
       return Right(newBoard);
     } catch (e) {
-      return Left(ServerFailure('Failed to create board'));
+      return const Left(ServerFailure('Failed to create board'));
     }
   }
 
@@ -56,17 +54,17 @@ class FakeBoardRepositoryImpl implements BoardRepository {
     try {
       await Future.delayed(const Duration(milliseconds: 300));
 
-      final index = _db.boards.indexWhere((b) => b.id == boardId);
+      final index = boards.indexWhere((b) => b.id == boardId);
 
       if (index == -1) {
-        return Left(ServerFailure('Board not found'));
+        return const Left(ServerFailure('Board not found'));
       }
 
-      _db.boards.removeAt(index);
+      boards.removeAt(index);
 
       return const Right(null);
     } catch (e) {
-      return Left(ServerFailure('Failed to delete board'));
+      return const Left(ServerFailure('Failed to delete board'));
     }
   }
 }
