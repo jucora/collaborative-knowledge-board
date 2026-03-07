@@ -1,6 +1,7 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../board_column/presentation/providers/board_column_providers.dart';
+import '../../../board_column/presentation/providers/board_column_future_provider.dart';
 import '../../../board_column/presentation/widgets/board_column_widget.dart';
 
 /// Página de detalle de un board.
@@ -22,7 +23,7 @@ class BoardDetailPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final boardColumnsAsync = ref.watch(
-      getBoardColumnsUseCaseProvider(boardId),
+      boardColumnsProvider(boardId),
     );
 
     return Scaffold(
@@ -46,6 +47,5 @@ class BoardDetailPage extends ConsumerWidget {
         },
       ),
     );
-
   }
 }

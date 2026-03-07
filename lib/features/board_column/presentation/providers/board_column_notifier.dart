@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/board_column.dart';
 import '../../domain/usecases/get_board_columns_usecase.dart';
-import 'board_column_providers.dart';
+import 'board_column_usecase_provider.dart';
 
 class BoardColumnNotifier extends FamilyAsyncNotifier<List<BoardColumn>, String> {
 
@@ -11,7 +11,7 @@ class BoardColumnNotifier extends FamilyAsyncNotifier<List<BoardColumn>, String>
   @override
   Future<List<BoardColumn>> build(String boardId) async {
 
-    getBoardColumns = ref.read(getBoardColumnsUseCaseProviderInternal);
+    getBoardColumns = ref.read(getBoardColumnsUseCaseProvider);
 
     final result = await getBoardColumns(boardId);
 
