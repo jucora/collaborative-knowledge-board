@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../card/presentation/providers/fake_cards_by_column_provider.dart';
+import '../../../card/presentation/providers/cards_future_provider.dart';
+import '../../../card/presentation/widgets/create_card_dialog.dart';
 import '../../domain/entities/board_column.dart';
 
 class BoardColumnWidget extends ConsumerWidget {
@@ -15,7 +16,7 @@ class BoardColumnWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
 
-    final cardsAsync = ref.watch(cardsByColumnProvider(column.id));
+    final cardsAsync = ref.watch(cardsProvider(column.id));
 
     return Container(
       width: 300,
@@ -63,6 +64,21 @@ class BoardColumnWidget extends ConsumerWidget {
                 );
               },
             ),
+          ),
+          const SizedBox(height: 8),
+
+          /// ADD CARD BUTTON
+          TextButton.icon(
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (_) => CreateCardDialog(
+                  columnId: column.id,
+                ),
+              );
+            },
+            icon: const Icon(Icons.add),
+            label: const Text("Add card"),
           ),
         ],
       ),

@@ -1,16 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../comment/domain/entities/comment.dart';
-import '../../domain/entities/card_item.dart';
-import '../providers/card_notifier.dart';
-
-final cardNotifierProvider =
-AsyncNotifierProvider.family<
-    CardNotifier,
-    List<CardItem>,
-    String>(
-  CardNotifier.new,
-);
+import '../providers/card_notifier_provider.dart';
 
 class CreateCardDialog extends ConsumerStatefulWidget {
   final String columnId;
@@ -27,19 +18,28 @@ class CreateCardDialog extends ConsumerStatefulWidget {
 
 class _CreateCardDialogState
     extends ConsumerState<CreateCardDialog> {
-  final _formKey = GlobalKey<FormState>();
 
+  final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _commentController = TextEditingController();
 
   final List<Comment> _comments = [];
-  DateTime? _createdAt;
 
+  DateTime? _createdAt;
   bool _isSubmitting = false;
 
   @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _commentController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
+
     return AlertDialog(
       title: const Text('Create Card'),
       content: SingleChildScrollView(
@@ -48,7 +48,8 @@ class _CreateCardDialogState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // TITLE
+
+              /// TITLE
               TextFormField(
                 controller: _titleController,
                 decoration:
@@ -58,25 +59,27 @@ class _CreateCardDialogState
                     ? 'Title is required'
                     : null,
               ),
+
               const SizedBox(height: 12),
 
-              // DESCRIPTION
+              /// DESCRIPTION
               TextFormField(
                 controller: _descriptionController,
                 decoration: const InputDecoration(
                     labelText: 'Description'),
                 maxLines: 3,
               ),
+
               const SizedBox(height: 12),
 
-              // TAG INPUT
+              /// COMMENT INPUT
               Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _commentController,
                       decoration: const InputDecoration(
-                          labelText: 'Add tag'),
+                          labelText: 'Add comment'),
                     ),
                   ),
                   IconButton(
@@ -85,27 +88,27 @@ class _CreateCardDialogState
                   )
                 ],
               ),
+
               const SizedBox(height: 8),
 
-              // TAGS PREVIEW
+              /// COMMENTS PREVIEW
               Wrap(
                 spacing: 6,
-                children: _comments
-                    .map(
-                      (comment) => Chip(
-                    label: Text(comment as String),
+                children: _comments.map((comment) {
+                  return Chip(
+                    label: Text(comment.content),
                     onDeleted: () {
                       setState(() {
                         _comments.remove(comment);
                       });
                     },
-                  ),
-                )
-                    .toList(),
+                  );
+                }).toList(),
               ),
+
               const SizedBox(height: 12),
 
-              // DUE DATE
+              /// DATE PICKER
               Row(
                 children: [
                   Expanded(
@@ -125,12 +128,17 @@ class _CreateCardDialogState
           ),
         ),
       ),
+
       actions: [
+
+        /// CANCEL
         TextButton(
           onPressed:
           _isSubmitting ? null : () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
+
+        /// CREATE BUTTON
         ElevatedButton(
           onPressed: _isSubmitting ? null : _submit,
           child: _isSubmitting
@@ -147,18 +155,30 @@ class _CreateCardDialogState
     );
   }
 
+  /// ADD COMMENT
   void _addComment() {
-    final comment = _commentController.text.trim();
 
-    if (comment.isNotEmpty && !_comments.contains(comment)) {
-      setState(() {
-        _comments.add(comment as Comment);
-        _commentController.clear();
-      });
-    }
+    final text = _commentController.text.trim();
+
+    if (text.isEmpty) return;
+
+    final newComment = Comment(
+      id: UniqueKey().toString(),
+      content: text,
+      createdAt: DateTime.now(),
+      cardId: widget.columnId,
+      authorId: 'currentUserId',
+    );
+
+    setState(() {
+      _comments.add(newComment);
+      _commentController.clear();
+    });
   }
 
+  /// PICK DATE
   Future<void> _pickDate() async {
+
     final picked = await showDatePicker(
       context: context,
       firstDate: DateTime.now(),
@@ -173,32 +193,48 @@ class _CreateCardDialogState
     }
   }
 
+  /// SUBMIT CARD
   Future<void> _submit() async {
+
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
       _isSubmitting = true;
     });
 
-    await ref
-        .read(cardNotifierProvider(widget.columnId).notifier)
-        .createCard(
-      id: UniqueKey().toString(),
-      columnId: widget.columnId,
-      title: _titleController.text.trim(),
-      description: _descriptionController.text.trim(),
-      position: 0, // TODO: Calcular posición real
-      createdBy: 'currentUserId', // TODO: Obtener ID real del usuario
-      createdAt: _createdAt,
-      comments: _comments,
-    );
+    try {
 
-    setState(() {
-      _isSubmitting = false;
-    });
+      await ref
+          .read(cardNotifierProvider(widget.columnId).notifier)
+          .createCard(
+        id: UniqueKey().toString(),
+        columnId: widget.columnId,
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+        position: 0,
+        createdBy: 'currentUserId', // TODO
+        createdAt: _createdAt,
+        comments: _comments,
+      );
 
-    if (mounted) {
-      Navigator.pop(context);
+      if (mounted) {
+        Navigator.pop(context);
+      }
+
+    } catch (e) {
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+
+    } finally {
+
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+
     }
   }
 }
