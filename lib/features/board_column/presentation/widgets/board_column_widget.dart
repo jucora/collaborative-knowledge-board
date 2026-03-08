@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../card/presentation/providers/cards_future_provider.dart';
+import '../../../card/presentation/providers/card_notifier_provider.dart';
 import '../../../card/presentation/widgets/create_card_dialog.dart';
 import '../../domain/entities/board_column.dart';
 
@@ -16,7 +16,7 @@ class BoardColumnWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
 
-    final cardsAsync = ref.watch(cardsProvider(column.id));
+    final cardsAsync = ref.watch(cardNotifierProvider(column.id));
 
     return Container(
       width: 300,
