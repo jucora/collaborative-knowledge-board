@@ -1,4 +1,3 @@
-import 'package:collaborative_knowledge_board/features/comment/data/models/comment_model.dart';
 import '../../../../core/network/api_endpoints.dart';
 import '../../../../core/network/dio_client.dart';
 import '../models/card_item_model.dart';
@@ -25,7 +24,6 @@ class CardRemoteDataSource {
     required int position,
     required String createdBy,
     required DateTime? createdAt,
-    required List<CommentModel> comments,
   }) async {
     final response = await dioClient.post(
       ApiEndpoints.cardsByColumn(columnId),
@@ -37,7 +35,6 @@ class CardRemoteDataSource {
         'position': position,
         'created_by': createdBy,
         'created_at': createdAt,
-        'comments': comments,
       },
     );
 
@@ -53,7 +50,6 @@ class CardRemoteDataSource {
         'position': card.position,
         'created_by': card.createdBy,
         'created_at': card.createdAt,
-        'comments': card.comments,
       },
     );
 

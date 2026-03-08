@@ -19,7 +19,6 @@ class FakeCards {
             position: i,
             createdBy: 'user_${i % 3}', // Simula 3 usuarios diferentes
             createdAt: DateTime.now().subtract(Duration(days: i),),
-            comments: [],
         ));
       }
     }

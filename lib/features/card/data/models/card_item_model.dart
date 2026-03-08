@@ -1,5 +1,4 @@
 import '../../domain/entities/card_item.dart';
-import '../../../comment/data/models/comment_model.dart';
 
 class CardItemModel {
   final String id;
@@ -9,7 +8,6 @@ class CardItemModel {
   final int position;
   final String createdBy;
   final DateTime createdAt;
-  final List<CommentModel> comments;
 
   CardItemModel({
     required this.id,
@@ -19,7 +17,6 @@ class CardItemModel {
     required this.position,
     required this.createdBy,
     required this.createdAt,
-    required this.comments,
   });
 
   /// JSON -> Model
@@ -32,9 +29,6 @@ class CardItemModel {
       position: json['position'],
       createdBy: json['created_by'],
       createdAt: DateTime.parse(json['created_at']),
-      comments: (json['comments'] as List)
-          .map((e) => CommentModel.fromJson(e))
-          .toList(),
     );
   }
 
@@ -48,7 +42,6 @@ class CardItemModel {
       position: position,
       createdBy: createdBy,
       createdAt: createdAt,
-      comments: comments.map((e) => e.toEntity()).toList(),
     );
   }
 
@@ -62,9 +55,6 @@ class CardItemModel {
       position: entity.position,
       createdBy: entity.createdBy,
       createdAt: entity.createdAt,
-      comments: entity.comments
-          .map((e) => CommentModel.fromEntity(e))
-          .toList(),
     );
   }
 }

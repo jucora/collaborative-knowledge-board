@@ -1,12 +1,9 @@
 import 'package:dartz/dartz.dart';
 import '../../../../core/error/exception_handler.dart';
 import '../../../../core/error/failures.dart';
-import '../../../comment/domain/entities/comment.dart';
-import '../../../comment/data/models/comment_model.dart';
 import '../../domain/entities/card_item.dart';
 import '../../domain/repositories/card_repository.dart';
 import '../datasources/card_remote_datasource.dart';
-import '../models/card_item_model.dart';
 
 class CardRepositoryImpl implements CardRepository {
   final CardRemoteDataSource remoteDataSource;
@@ -37,13 +34,8 @@ class CardRepositoryImpl implements CardRepository {
     required int position,
     required String createdBy,
     required DateTime? createdAt,
-    required List<Comment> comments,
   }) async {
     try {
-      /// Entity -> Model
-      final commentModels = comments
-          .map((comment) => CommentModel.fromEntity(comment))
-          .toList();
 
       final model = await remoteDataSource.createCard(
         id: id,
@@ -53,23 +45,9 @@ class CardRepositoryImpl implements CardRepository {
         position: position,
         createdBy: createdBy,
         createdAt: createdAt,
-        comments: commentModels,
       );
 
       /// Model -> Entity
-      return Right(model.toEntity());
-    } on Exception catch (e) {
-      return Left(ExceptionHandler.handle(e));
-    }
-  }
-
-  @override
-  Future<Either<Failure, CardItem>> updateCard(CardItem card) async {
-    try {
-      final cardModel = CardItemModel.fromEntity(card);
-
-      final model = await remoteDataSource.updateCard(cardModel);
-
       return Right(model.toEntity());
     } on Exception catch (e) {
       return Left(ExceptionHandler.handle(e));
@@ -85,5 +63,11 @@ class CardRepositoryImpl implements CardRepository {
     } on Exception catch (e) {
       return Left(ExceptionHandler.handle(e));
     }
+  }
+
+  @override
+  Future<Either<Failure, CardItem>> updateCard({required String id, required String columnId, required String title, required String description, required int position, required String createdBy, required DateTime createdAt}) {
+    // TODO: implement updateCard
+    throw UnimplementedError();
   }
 }

@@ -9,6 +9,14 @@ class UpdateCardUseCase {
   UpdateCardUseCase(this.repository);
 
   Future<Either<Failure, CardItem>> call(CardItem card) {
-    return repository.updateCard(card);
+    return repository.updateCard(
+      id: card.id,
+      columnId: card.columnId,
+      title: card.title,
+      description: card.description,
+      position: card.position,
+      createdBy: card.createdBy,
+      createdAt: card.createdAt,
+    );
   }
 }

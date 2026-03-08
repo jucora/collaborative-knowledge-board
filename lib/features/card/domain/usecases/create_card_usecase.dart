@@ -16,8 +16,7 @@ class CreateCardUseCase {
     required String description,
     required int position,
     required String createdBy,
-    required DateTime? createdAt,
-    required List<Comment> comments,
+    required DateTime createdAt,
   }) {
     return repository.createCard(
       id: id,
@@ -27,7 +26,6 @@ class CreateCardUseCase {
       position: position,
       createdBy: createdBy,
       createdAt: createdAt,
-      comments: comments,
     );
   }
 }

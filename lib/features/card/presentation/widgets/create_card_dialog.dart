@@ -26,7 +26,7 @@ class _CreateCardDialogState
 
   final List<Comment> _comments = [];
 
-  DateTime? _createdAt;
+  late DateTime _createdAt = DateTime.now();
   bool _isSubmitting = false;
 
   @override
@@ -113,9 +113,7 @@ class _CreateCardDialogState
                 children: [
                   Expanded(
                     child: Text(
-                      _createdAt == null
-                          ? 'No due date'
-                          : 'Due: ${_createdAt!.toLocal().toString().split(' ')[0]}',
+                      'Due: ${_createdAt.toLocal().toString().split(' ')[0]}',
                     ),
                   ),
                   TextButton(
@@ -208,13 +206,11 @@ class _CreateCardDialogState
           .read(cardNotifierProvider(widget.columnId).notifier)
           .createCard(
         id: UniqueKey().toString(),
-        columnId: widget.columnId,
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         position: 0,
-        createdBy: 'currentUserId', // TODO
+        createdBy: 'currentUserId',
         createdAt: _createdAt,
-        comments: _comments,
       );
 
       if (mounted) {

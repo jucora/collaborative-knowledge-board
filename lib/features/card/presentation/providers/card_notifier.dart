@@ -1,53 +1,38 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../comment/domain/entities/comment.dart';
 import '../../domain/entities/card_item.dart';
-import '../../domain/usecases/get_cards_usecase.dart';
 import 'card_usecase_provider.dart';
 
 class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
 
-  late final GetCardsUseCase getCardsUseCase;
+  late String columnId;
 
   @override
-  Future<List<CardItem>> build(String columnId) async {
+  Future<List<CardItem>> build(String arg) async {
 
-    getCardsUseCase = ref.read(getCardsUseCaseProvider);
+    columnId = arg;
 
-    final result = await getCardsUseCase(columnId);
+    final useCase = ref.read(getCardsUseCaseProvider);
+
+    final result = await useCase(columnId);
 
     return result.fold(
-          (failure) => throw failure,
+          (failure) => throw Exception(failure.message),
           (cards) => cards,
-    );
-  }
-
-  Future<void> refreshColumnCards() async {
-
-    state = const AsyncLoading<List<CardItem>>()
-        .copyWithPrevious(state);
-
-    final result = await getCardsUseCase(arg);
-
-    result.fold(
-          (failure) => state = AsyncError(failure, StackTrace.current),
-          (cards) => state = AsyncData(cards),
     );
   }
 
   Future<void> createCard({
     required String id,
-    required String columnId,
     required String title,
     required String description,
     required int position,
     required String createdBy,
-    required DateTime? createdAt,
-    required List<Comment> comments,
+    required DateTime createdAt,
   }) async {
 
-    final createCard = ref.read(createCardUseCaseProvider);
+    final useCase = ref.read(createCardUseCaseProvider);
 
-    await createCard(
+    final result = await useCase(
       id: id,
       columnId: columnId,
       title: title,
@@ -55,9 +40,24 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
       position: position,
       createdBy: createdBy,
       createdAt: createdAt,
-      comments: comments,
     );
 
-    await refreshColumnCards();
+    result.fold(
+          (failure) => throw Exception(failure.message),
+          (_) {
+
+        final newCard = CardItem(
+          id: id,
+          columnId: columnId,
+          title: title,
+          description: description,
+          position: position,
+          createdBy: createdBy,
+          createdAt: createdAt,
+        );
+
+        state = state.whenData((cards) => [...cards, newCard]);
+      },
+    );
   }
 }

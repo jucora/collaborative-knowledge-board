@@ -1,6 +1,5 @@
 import 'package:dartz/dartz.dart';
 import '../../../../core/error/failures.dart';
-import '../../../comment/domain/entities/comment.dart';
 import '../entities/card_item.dart';
 
 abstract class CardRepository {
@@ -13,11 +12,18 @@ abstract class CardRepository {
     required String description,
     required int position,
     required String createdBy,
-    required DateTime? createdAt,
-    required List<Comment> comments,
+    required DateTime createdAt,
   });
 
-  Future<Either<Failure, CardItem>> updateCard(CardItem card);
+  Future<Either<Failure, CardItem>> updateCard({
+    required String id,
+    required String columnId,
+    required String title,
+    required String description,
+    required int position,
+    required String createdBy,
+    required DateTime createdAt,
+  });
 
   Future<Either<Failure, void>> deleteCard(String cardId);
 }

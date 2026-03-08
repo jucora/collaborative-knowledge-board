@@ -1,5 +1,6 @@
 import 'package:collaborative_knowledge_board/features/card/domain/entities/card_item.dart';
 import '../../../../core/fake_data/fake_database.dart';
+import '../../../comment/domain/entities/comment.dart';
 
 class FakeCardDatasource {
 
@@ -14,5 +15,9 @@ class FakeCardDatasource {
     return database.cards
         .where((c) => c.columnId == columnId)
         .toList();
+  }
+
+  Future<void> createCard(CardItem card) async {
+    database.cards.add(card);
   }
 }
