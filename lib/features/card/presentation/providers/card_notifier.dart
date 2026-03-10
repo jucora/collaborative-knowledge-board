@@ -2,8 +2,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../domain/entities/card_item.dart';
 import 'card_usecase_provider.dart';
 
-/// Notifier that manages the state of a list of cards for a specific column.
-/// Inherits from [FamilyAsyncNotifier] to handle different columns by their ID.
+/// Notifier responsible for managing the state of cards within a specific column.
+/// 
+/// It uses the [FamilyAsyncNotifier] to maintain independent states for each column ID.
 class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
 
   late String columnId;
@@ -20,7 +21,7 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     );
   }
 
-  /// Creates a new card and updates the local state.
+  /// Creates a new card and adds it to the current column's state.
   Future<void> createCard({
     required String id,
     required String title,
@@ -55,14 +56,17 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
           createdAt: createdAt,
         );
 
+        // Update the state with the new card added to the list.
         state = state.whenData((cards) => [...cards, newCard]);
       },
     );
   }
 
-  /// Updates a card's information.
-  /// This is crucial for Drag & Drop: if the card moved to a different column,
-  /// it removes the card from the current column's state.
+  /// Handles the logic for moving a card to a different column or updating its data.
+  /// 
+  /// INTER-COLUMN DRAG: 
+  /// If the [updatedCard.columnId] no longer matches this notifier's [columnId], 
+  /// the card is removed from the local state.
   Future<void> updateCard(CardItem card) async {
     final useCase = ref.read(updateCardUseCaseProvider);
     final result = await useCase(card);
@@ -70,13 +74,13 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     result.fold(
           (failure) => throw Exception(failure.message),
           (updatedCard) {
-        // If the card is still in this column (e.g., just position changed), update local list.
         if (updatedCard.columnId == columnId) {
+          // If the card remains in this column, update its properties in the list.
           state = state.whenData((cards) {
             return cards.map((c) => c.id == updatedCard.id ? updatedCard : c).toList();
           });
         } else {
-          // If the card moved to another column, remove it from this notifier's state.
+          // If the card moved away, remove it from this specific column's state.
           state = state.whenData((cards) {
             return cards.where((c) => c.id != updatedCard.id).toList();
           });
@@ -85,12 +89,44 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     );
   }
 
-  /// Adds a card to the local state without triggering a backend call.
-  /// Used for immediate UI feedback during Drag & Drop (Optimistic UI).
+  /// Adds a card to the state immediately without waiting for a backend response.
+  /// 
+  /// OPTIMISTIC UI: This is called by the TARGET column during an inter-column drag 
+  /// to make the transition feel instantaneous to the user.
   void addCardLocally(CardItem card) {
     state = state.whenData((cards) {
       if (cards.any((c) => c.id == card.id)) return cards;
       return [...cards, card];
     });
+  }
+
+  /// Handles reordering cards within the SAME column.
+  /// 
+  /// INTRA-COLUMN DRAG:
+  /// 1. Rearranges the local list for immediate visual feedback.
+  /// 2. Iterates through the list to update each card's [position] index in the database.
+  Future<void> reorderCards(int oldIndex, int newIndex) async {
+    final cards = state.value;
+    if (cards == null) return;
+
+    // Flutter's ReorderableListView adjustment for moving items down.
+    if (newIndex > oldIndex) {
+      newIndex -= 1;
+    }
+
+    // 1. Rearrange the list locally.
+    final List<CardItem> updatedList = List.from(cards);
+    final item = updatedList.removeAt(oldIndex);
+    updatedList.insert(newIndex, item);
+
+    // 2. Set the state immediately so the animation is smooth.
+    state = AsyncData(updatedList);
+
+    // 3. Persist the new order by updating the position of each card.
+    // In a production app, you might use a batch update or a specific reorder endpoint.
+    for (int i = 0; i < updatedList.length; i++) {
+      final card = updatedList[i].copyWith(position: i);
+      await updateCard(card);
+    }
   }
 }
