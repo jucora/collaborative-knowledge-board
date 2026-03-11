@@ -1,4 +1,5 @@
 import 'package:collaborative_knowledge_board/core/error/failures.dart';
+import 'package:collaborative_knowledge_board/core/services/real_time_service.dart';
 import 'package:collaborative_knowledge_board/features/comment/domain/entities/comment.dart';
 import 'package:dartz/dartz.dart';
 import '../../../card/data/datasources/fake_card_datasource.dart';
@@ -7,12 +8,14 @@ import '../datasources/fake_comment_datasource.dart';
 
 class FakeCommentRepositoryImpl extends CommentRepository {
 
-  FakeCardDatasource cardDataSource;
-  FakeCommentDataSource commentDataSource;
+  final FakeCardDatasource cardDataSource;
+  final FakeCommentDataSource commentDataSource;
+  final RealTimeService realTimeService;
 
   FakeCommentRepositoryImpl(
       this.cardDataSource,
       this.commentDataSource,
+      this.realTimeService,
       );
 
   @override
@@ -23,25 +26,38 @@ class FakeCommentRepositoryImpl extends CommentRepository {
     required String content,
     required DateTime createdAt,
   }) async {
+    try {
+      final newComment = Comment(
+        id: id,
+        cardId: cardId,
+        authorId: authorId,
+        content: content,
+        createdAt: createdAt,
+      );
 
-    final newComment = Comment(
-      id: id,
-      cardId: cardId,
-      authorId: authorId,
-      content: content,
-      createdAt: createdAt,
-    );
+      await commentDataSource.addComments([newComment]);
+      realTimeService.notify(RealTimeEventType.commentCreated, newComment);
 
-    final comments = await commentDataSource.getCommentsByCard(cardId);
-    comments.add(newComment);
-    await commentDataSource.addComments(comments);
-
-    return const Right(null);
+      return const Right(null);
+    } catch (e) {
+      return const Left(ServerFailure('Failed to add comment'));
+    }
   }
 
   @override
-  Future<Either<Failure, List<Comment>>> getCommentsByCard(String cardId) {
-    // TODO: implement getCommentsByCard
-    throw UnimplementedError();
+  Future<Either<Failure, List<Comment>>> getCommentsByCard(String cardId) async {
+    try {
+      final comments = await commentDataSource.getCommentsByCard(cardId);
+      return Right(comments);
+    } catch (e) {
+      return const Left(ServerFailure('Failed to load comments'));
+    }
+  }
+
+  @override
+  Stream<RealTimeEvent> watchComments() {
+    return realTimeService.eventStream.where((event) => 
+      event.type == RealTimeEventType.commentCreated
+    );
   }
 }

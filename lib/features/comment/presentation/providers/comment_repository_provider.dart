@@ -1,3 +1,4 @@
+import 'package:collaborative_knowledge_board/core/services/real_time_service.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../card/presentation/providers/card_datasource_provider.dart';
 import '../../data/repositories/fake_comment_repository_impl.dart';
@@ -8,5 +9,6 @@ final commentRepositoryProvider =
 Provider<CommentRepository>((ref) {
   final datasource = ref.watch(cardDataSourceProvider);
   final commentDatasource = ref.watch(commentDataSourceProvider);
-  return FakeCommentRepositoryImpl(datasource, commentDatasource);
+  final realTimeService = ref.watch(realTimeServiceProvider);
+  return FakeCommentRepositoryImpl(datasource, commentDatasource, realTimeService);
 });

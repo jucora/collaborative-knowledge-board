@@ -1,11 +1,15 @@
 import 'package:dartz/dartz.dart';
 import '../../../../core/error/failures.dart';
+import '../../../../core/services/real_time_service.dart';
 import '../entities/comment.dart';
 
+/// Abstract definition for Comment operations.
 abstract class CommentRepository {
 
+  /// Fetches all comments associated with a specific card.
   Future<Either<Failure, List<Comment>>> getCommentsByCard(String cardId);
 
+  /// Adds a new comment to a card.
   Future<Either<Failure, void>> addComment({
     required String id,
     required String cardId,
@@ -13,4 +17,7 @@ abstract class CommentRepository {
     required String content,
     required DateTime createdAt,
   });
+
+  /// Returns a stream of real-time events related to comments.
+  Stream<RealTimeEvent> watchComments();
 }

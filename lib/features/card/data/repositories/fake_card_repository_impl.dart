@@ -1,4 +1,5 @@
 import 'package:collaborative_knowledge_board/core/error/failures.dart';
+import 'package:collaborative_knowledge_board/core/services/real_time_service.dart';
 import 'package:collaborative_knowledge_board/features/card/data/datasources/fake_card_datasource.dart';
 import 'package:collaborative_knowledge_board/features/card/domain/entities/card_item.dart';
 import 'package:collaborative_knowledge_board/features/card/domain/repositories/card_repository.dart';
@@ -6,14 +7,17 @@ import 'package:dartz/dartz.dart';
 import '../../../comment/data/datasources/fake_comment_datasource.dart';
 
 /// Repository implementation using a fake datasource for development and testing.
+/// This implementation simulates real-time behavior using the RealTimeService.
 class FakeCardRepositoryImpl extends CardRepository {
 
-  FakeCardDatasource cardDatasource;
-  FakeCommentDataSource commentDatasource;
+  final FakeCardDatasource cardDatasource;
+  final FakeCommentDataSource commentDatasource;
+  final RealTimeService realTimeService;
 
   FakeCardRepositoryImpl(
       this.cardDatasource,
       this.commentDatasource,
+      this.realTimeService,
       );
 
   @override
@@ -39,6 +43,10 @@ class FakeCardRepositoryImpl extends CardRepository {
       );
 
       await cardDatasource.createCard(card);
+      
+      // BROADCAST: Notify all listeners that a new card has been created.
+      realTimeService.notify(RealTimeEventType.cardCreated, card);
+      
       return Right(card);
     } catch (e) {
       return const Left(ServerFailure('Failed to create card'));
@@ -86,9 +94,23 @@ class FakeCardRepositoryImpl extends CardRepository {
       );
 
       final updatedCard = await cardDatasource.updateCard(card);
+      
+      // BROADCAST: Notify all listeners about the updated card (e.g., position or column change).
+      realTimeService.notify(RealTimeEventType.cardUpdated, updatedCard);
+      
       return Right(updatedCard);
     } catch (e) {
       return const Left(ServerFailure('Failed to update card'));
     }
+  }
+
+  @override
+  Stream<RealTimeEvent> watchCards() {
+    // Filter the global event stream to only return events related to cards.
+    return realTimeService.eventStream.where((event) => 
+      event.type == RealTimeEventType.cardCreated || 
+      event.type == RealTimeEventType.cardUpdated || 
+      event.type == RealTimeEventType.cardDeleted
+    );
   }
 }
