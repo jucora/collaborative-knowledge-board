@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Defines the types of events that can happen in real-time.
@@ -18,48 +19,49 @@ class RealTimeEvent {
 }
 
 /// A service that manages real-time event broadcasting and connection simulation.
-/// In a real app, this would be replaced by a WebSocket or Firebase implementation.
-class RealTimeService {
-  // Using a broadcast stream allows multiple listeners (columns, dialogs)
-  // to receive the same event simultaneously.
+/// We use ChangeNotifier so the UI can react to connection status changes.
+class RealTimeService extends ChangeNotifier {
   final _controller = StreamController<RealTimeEvent>.broadcast();
-
-  // Simulates the current connection status.
   bool _isConnected = true;
 
-  /// Stream of events that UI components can subscribe to.
+  /// Stream of events that repositories and notifiers subscribe to.
   Stream<RealTimeEvent> get eventStream => _controller.stream;
-
-  /// Returns whether the service is currently "connected".
+  
+  /// Current simulated connection status.
   bool get isConnected => _isConnected;
 
-  /// Notifies all listeners about a new event.
-  /// If the service is disconnected, events are dropped (simulating offline behavior).
+  /// Broadcasts an event to all subscribers if "connected".
   void notify(RealTimeEventType type, dynamic data) {
     if (_isConnected) {
       _controller.add(RealTimeEvent(type, data));
     }
   }
 
-  /// Sets the connection status.
-  /// When reconnecting, it emits a null event to trigger a global data refresh.
+  /// Toggles the connection status and notifies the UI.
   void setConnection(bool connected) {
+    if (_isConnected == connected) return;
+    
     _isConnected = connected;
+    
     if (connected) {
-      // Notify listeners to re-fetch data to ensure consistency after being offline.
-      _controller.add(RealTimeEvent(RealTimeEventType.cardUpdated, null));
+      // Upon reconnection, we emit a special event (null data) 
+      // to signal all listeners to re-sync their state from the Source of Truth.
+      _controller.add(RealTimeEvent(RealTimeEventType.cardUpdated, null)); 
     }
+    
+    // Notify ChangeNotifier listeners (like the Simulator Panel) to rebuild.
+    notifyListeners();
   }
 
-  /// Closes the stream controller when the service is no longer needed.
+  @override
   void dispose() {
     _controller.close();
+    super.dispose();
   }
 }
 
-/// Provider to access the RealTimeService instance across the application.
-final realTimeServiceProvider = Provider<RealTimeService>((ref) {
-  final service = RealTimeService();
-  ref.onDispose(() => service.dispose());
-  return service;
+/// Provider to access the RealTimeService. 
+/// Using ChangeNotifierProvider allows widgets to 'watch' the connection status.
+final realTimeServiceProvider = ChangeNotifierProvider<RealTimeService>((ref) {
+  return RealTimeService();
 });
