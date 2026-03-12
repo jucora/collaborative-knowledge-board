@@ -8,6 +8,8 @@ enum RealTimeEventType {
   cardUpdated,
   cardDeleted,
   commentCreated,
+  commentUpdated,
+  commentDeleted,
 }
 
 /// Represents a single real-time event carrying a type and the associated data.

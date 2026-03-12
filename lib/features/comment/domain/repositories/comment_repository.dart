@@ -16,7 +16,20 @@ abstract class CommentRepository {
     required String authorId,
     required String content,
     required DateTime createdAt,
+    String? parentId,
+    List<String> mentionedUserIds = const [],
   });
+
+  /// Updates an existing comment's content.
+  Future<Either<Failure, void>> updateComment({
+    required String id,
+    required String content,
+    required DateTime updatedAt,
+    List<String> mentionedUserIds = const [],
+  });
+
+  /// Deletes a comment by its ID.
+  Future<Either<Failure, void>> deleteComment(String commentId);
 
   /// Returns a stream of real-time events related to comments.
   Stream<RealTimeEvent> watchComments();

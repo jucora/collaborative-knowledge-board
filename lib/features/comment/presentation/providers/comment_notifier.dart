@@ -18,12 +18,9 @@ class CommentNotifier extends FamilyAsyncNotifier<List<Comment>, String> {
     cardId = arg;
     getCommentsUseCase = ref.read(getCommentsUseCaseProvider);
 
-    // START: Real-Time Implementation
-    // Listen for new comments in real-time.
     final repository = ref.read(commentRepositoryProvider);
     _subscription?.cancel();
     _subscription = repository.watchComments().listen(_handleRealTimeEvent);
-    // END: Real-Time Implementation
 
     final result = await getCommentsUseCase(cardId);
 
@@ -33,49 +30,38 @@ class CommentNotifier extends FamilyAsyncNotifier<List<Comment>, String> {
     );
   }
 
-  /// Handles incoming real-time comment events.
   void _handleRealTimeEvent(RealTimeEvent event) {
     if (event.data == null) {
-      // Refresh data if connection is recovered.
       ref.invalidateSelf();
       return;
     }
 
-    if (event.type == RealTimeEventType.commentCreated) {
-      final comment = event.data as Comment;
-      // Only update if the comment belongs to the card this notifier is watching.
-      if (comment.cardId == cardId) {
-        state = state.whenData((comments) {
-          // Avoid duplicate comments in the UI.
-          if (comments.any((c) => c.id == comment.id)) return comments;
+    state = state.whenData((comments) {
+      if (event.type == RealTimeEventType.commentCreated) {
+        final comment = event.data as Comment;
+        if (comment.cardId == cardId && !comments.any((c) => c.id == comment.id)) {
           return [...comments, comment];
-        });
+        }
+      } else if (event.type == RealTimeEventType.commentUpdated) {
+        final updatedComment = event.data as Comment;
+        return comments.map((c) => c.id == updatedComment.id ? updatedComment : c).toList();
+      } else if (event.type == RealTimeEventType.commentDeleted) {
+        final commentId = event.data as String;
+        return comments.where((c) => c.id != commentId).toList();
       }
-    }
+      return comments;
+    });
   }
 
-  /// Manually re-fetches comments from the repository.
-  Future<void> refreshComments() async {
-    state = const AsyncLoading<List<Comment>>()
-        .copyWithPrevious(state);
-
-    final result = await getCommentsUseCase(cardId);
-
-    result.fold(
-          (failure) => state = AsyncError(failure, StackTrace.current),
-          (comments) => state = AsyncData(comments),
-    );
-  }
-
-  /// Sends a new comment to the repository.
   Future<void> createComment({
     required String id,
     required String cardId,
     required String authorId,
     required String content,
     required DateTime createdAt,
+    String? parentId,
+    List<String> mentionedUserIds = const [],
   }) async {
-
     final addComment = ref.read(addCommentUseCaseProvider);
 
     await addComment(
@@ -84,8 +70,28 @@ class CommentNotifier extends FamilyAsyncNotifier<List<Comment>, String> {
       authorId: authorId,
       content: content,
       createdAt: createdAt,
+      parentId: parentId,
+      mentionedUserIds: mentionedUserIds,
     );
-    
-    // Note: The UI update is handled by the real-time stream subscription in _handleRealTimeEvent.
+  }
+
+  Future<void> updateComment({
+    required String id,
+    required String content,
+    required DateTime updatedAt,
+    List<String> mentionedUserIds = const [],
+  }) async {
+    final repository = ref.read(commentRepositoryProvider);
+    await repository.updateComment(
+      id: id,
+      content: content,
+      updatedAt: updatedAt,
+      mentionedUserIds: mentionedUserIds,
+    );
+  }
+
+  Future<void> deleteComment(String commentId) async {
+    final repository = ref.read(commentRepositoryProvider);
+    await repository.deleteComment(commentId);
   }
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/services/sync_service.dart';
 import '../../../card/domain/entities/card_item.dart';
 import '../../../card/presentation/providers/card_notifier_provider.dart';
+import '../../../card/presentation/widgets/card_detail_dialog.dart';
 import '../../domain/entities/board_column.dart';
 
 /// This widget represents an entire column on the Kanban board.
@@ -89,7 +90,15 @@ class BoardColumnWidget extends ConsumerWidget {
                             opacity: 0.3,
                             child: _CardItem(card: card),
                           ),
-                          child: _CardItem(card: card),
+                          child: InkWell(
+                            onTap: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) => CardDetailDialog(card: card),
+                              );
+                            },
+                            child: _CardItem(card: card),
+                          ),
                         );
                       },
                     );

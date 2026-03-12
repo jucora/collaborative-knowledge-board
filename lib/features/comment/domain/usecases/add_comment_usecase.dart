@@ -1,11 +1,11 @@
-import 'package:collaborative_knowledge_board/features/comment/domain/repositories/comment_repository.dart';
 import 'package:dartz/dartz.dart';
 import '../../../../core/error/failures.dart';
+import '../repositories/comment_repository.dart';
 
 class AddCommentUseCase {
-  CommentRepository commentRepository;
+  final CommentRepository repository;
 
-  AddCommentUseCase(this.commentRepository);
+  AddCommentUseCase(this.repository);
 
   Future<Either<Failure, void>> call({
     required String id,
@@ -13,15 +13,17 @@ class AddCommentUseCase {
     required String authorId,
     required String content,
     required DateTime createdAt,
-  }) async {
-    final result = await commentRepository.addComment(
+    String? parentId,
+    List<String> mentionedUserIds = const [],
+  }) {
+    return repository.addComment(
       id: id,
       cardId: cardId,
       authorId: authorId,
       content: content,
       createdAt: createdAt,
+      parentId: parentId,
+      mentionedUserIds: mentionedUserIds,
     );
-
-    return result;
   }
 }
