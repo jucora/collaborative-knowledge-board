@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/services/real_time_service.dart';
+import '../../../../core/services/sync_service.dart';
 import '../../domain/entities/card_item.dart';
 import 'card_repository_provider.dart';
 import 'card_usecase_provider.dart';
@@ -56,23 +57,18 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
 
   void _updateCardLocally(CardItem updatedCard) {
     state = state.whenData((cards) {
-      // Check if the card belongs to THIS column
       final belongsToThisColumn = updatedCard.columnId == columnId;
-      // Check if the card currently exists in our local list
       final existsLocally = cards.any((c) => c.id == updatedCard.id);
       
       if (belongsToThisColumn) {
         if (existsLocally) {
-          // UPDATE: Replace existing card with new data
           return cards.map((c) => c.id == updatedCard.id ? updatedCard : c).toList()
             ..sort((a, b) => a.position.compareTo(b.position));
         } else {
-          // MOVE IN: Add card that just arrived from another column
           return [...cards, updatedCard]
             ..sort((a, b) => a.position.compareTo(b.position));
         }
       } else {
-        // MOVE OUT: If the card no longer belongs here but we have it, REMOVE IT
         if (existsLocally) {
           return cards.where((c) => c.id != updatedCard.id).toList();
         }
@@ -87,6 +83,7 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     });
   }
 
+  /// Creates a card with Offline Support.
   Future<void> createCard({
     required String id,
     required String title,
@@ -95,8 +92,10 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     required String createdBy,
     required DateTime createdAt,
   }) async {
-    final useCase = ref.read(createCardUseCaseProvider);
-    await useCase(
+    final isOnline = ref.read(realTimeServiceProvider).isConnected;
+    final syncService = ref.read(syncServiceProvider);
+
+    final card = CardItem(
       id: id,
       columnId: columnId,
       title: title,
@@ -105,12 +104,42 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
       createdBy: createdBy,
       createdAt: createdAt,
     );
+
+    // OPTIMISTIC UPDATE: Update the UI immediately regardless of connection status.
+    addCardLocally(card);
+
+    if (isOnline) {
+      final useCase = ref.read(createCardUseCaseProvider);
+      await useCase(
+        id: id,
+        columnId: columnId,
+        title: title,
+        description: description,
+        position: position,
+        createdBy: createdBy,
+        createdAt: createdAt,
+      );
+    } else {
+      // OFFLINE SUPPORT: Queue the action for later synchronization.
+      syncService.addAction('createCard', card);
+    }
   }
 
+  /// Updates a card with Offline Support.
   Future<void> updateCard(CardItem card) async {
-    final useCase = ref.read(updateCardUseCaseProvider);
-    await useCase(card);
-    // State update will be handled by the real-time stream subscription
+    final isOnline = ref.read(realTimeServiceProvider).isConnected;
+    final syncService = ref.read(syncServiceProvider);
+
+    // Optimistically update UI locally
+    _updateCardLocally(card);
+
+    if (isOnline) {
+      final useCase = ref.read(updateCardUseCaseProvider);
+      await useCase(card);
+    } else {
+      // OFFLINE SUPPORT: Queue the action.
+      syncService.addAction('updateCard', card);
+    }
   }
 
   void addCardLocally(CardItem card) {

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/real_time_service.dart';
+import '../services/sync_service.dart';
 import '../fake_data/fake_database_provider.dart';
 import '../../features/card/domain/entities/card_item.dart';
 
@@ -70,6 +71,11 @@ class RealTimeSimulatorPanel extends ConsumerWidget {
                 activeColor: Colors.green,
                 onChanged: (value) {
                   ref.read(realTimeServiceProvider).setConnection(value);
+                  
+                  // MANUAL TRIGGER: If connection is restored, explicitly tell SyncService to sync.
+                  if (value) {
+                    ref.read(syncServiceProvider).sync();
+                  }
                 },
               ),
               
@@ -86,14 +92,6 @@ class RealTimeSimulatorPanel extends ConsumerWidget {
                     ? () => _simulateExternalCard(ref)
                     : null,
               ),
-              const Padding(
-                padding: EdgeInsets.only(top: 8.0),
-                child: Text(
-                  "This adds a card to the DB and notifies all columns.",
-                  style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic),
-                  textAlign: TextAlign.center,
-                ),
-              ),
             ],
           ),
         );
@@ -107,17 +105,15 @@ class RealTimeSimulatorPanel extends ConsumerWidget {
     final simulatedCard = CardItem(
       id: 'ext-${DateTime.now().millisecondsSinceEpoch}',
       columnId: firstColumnId!,
-      title: "External User Card 🚀",
-      description: "Created via simulation at ${DateTime.now().hour}:${DateTime.now().minute}",
+      title: "External User Card",
+      description: "Created via simulation",
       position: db.cards.where((c) => c.columnId == firstColumnId).length,
       createdBy: "Remote User",
       createdAt: DateTime.now(),
     );
 
-    // 1. Add to the shared database so it can be moved/updated later
     db.cards.add(simulatedCard);
 
-    // 2. Notify the UI
     ref.read(realTimeServiceProvider).notify(
       RealTimeEventType.cardCreated,
       simulatedCard,
