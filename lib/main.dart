@@ -48,7 +48,7 @@ class MyApp extends ConsumerWidget {
           elevation: 0,
           centerTitle: true,
           backgroundColor: Colors.white,
-          foregroundColor: primaryBlue,
+          foregroundColor: primaryBlue, // Title and icons color in light mode
           titleTextStyle: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 20,
@@ -61,14 +61,6 @@ class MyApp extends ConsumerWidget {
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide(color: Colors.grey.shade300),
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: Colors.grey.shade200),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: primaryBlue, width: 2),
           ),
         ),
         cardTheme: CardThemeData(
@@ -99,14 +91,19 @@ class MyApp extends ConsumerWidget {
           brightness: Brightness.dark,
           primary: primaryBlue,
           secondary: secondaryYellow,
+          onSurface: Colors.white, // Ensure text on surface is white
         ),
         appBarTheme: const AppBarTheme(
           elevation: 0,
           centerTitle: true,
+          backgroundColor: Color(0xFF121212), // Standard dark background
+          foregroundColor: Colors.white, // FIX: Title and icons color in dark mode
           titleTextStyle: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 20,
+            color: Colors.white, // FIX: Explicitly set title color to white
           ),
+          iconTheme: IconThemeData(color: Colors.white),
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
