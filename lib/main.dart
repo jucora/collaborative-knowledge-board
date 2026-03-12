@@ -22,9 +22,11 @@ class MyApp extends ConsumerWidget {
     final router = ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeProvider);
 
-    // Primary Colors from User
-    const primaryBlue = Color(0xFF1C5FF4);
-    const secondaryYellow = Color(0xFFF2BB31);
+    // COLORS FROM IMAGE
+    const deepNavy = Color(0xFF12123B);
+    const neonPink = Color(0xFFFF007F);
+    const vibrantViolet = Color(0xFF6200EE);
+    const electricCyan = Color(0xFF00E5FF);
 
     return MaterialApp.router(
       title: 'Collaborative Knowledge Board',
@@ -32,27 +34,29 @@ class MyApp extends ConsumerWidget {
       routerConfig: router,
       themeMode: themeMode,
       
-      // Light Theme
+      // Light Theme (Clean & Professional with Neons)
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: primaryBlue,
-          primary: primaryBlue,
-          secondary: secondaryYellow,
+          seedColor: vibrantViolet,
+          primary: vibrantViolet,
+          secondary: neonPink,
+          tertiary: electricCyan,
           surface: Colors.white,
-          background: const Color(0xFFF8F9FD),
+          background: const Color(0xFFF4F5FA),
           brightness: Brightness.light,
         ),
-        scaffoldBackgroundColor: const Color(0xFFF8F9FD),
+        scaffoldBackgroundColor: const Color(0xFFF4F5FA),
         appBarTheme: const AppBarTheme(
           elevation: 0,
           centerTitle: true,
-          backgroundColor: Colors.white,
-          foregroundColor: primaryBlue, // Title and icons color in light mode
+          backgroundColor: deepNavy, // Contrast with light background
+          foregroundColor: Colors.white,
           titleTextStyle: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 20,
-            color: primaryBlue,
+            color: Colors.white,
+            letterSpacing: 1.2,
           ),
         ),
         inputDecorationTheme: InputDecorationTheme(
@@ -62,53 +66,54 @@ class MyApp extends ConsumerWidget {
             borderRadius: BorderRadius.circular(16),
             borderSide: BorderSide(color: Colors.grey.shade300),
           ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: vibrantViolet, width: 2),
+          ),
         ),
         cardTheme: CardThemeData(
           elevation: 0,
           margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: Colors.grey.shade200),
+            side: BorderSide(color: vibrantViolet.withOpacity(0.1)),
           ),
           color: Colors.white,
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: primaryBlue,
+            backgroundColor: neonPink,
             foregroundColor: Colors.white,
             minimumSize: const Size(double.infinity, 50),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            elevation: 0,
+            elevation: 4,
+            shadowColor: neonPink.withOpacity(0.4),
           ),
         ),
       ),
 
-      // Dark Theme
+      // Dark Theme (True to Image Aesthetic)
       darkTheme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: primaryBlue,
+          seedColor: electricCyan,
           brightness: Brightness.dark,
-          primary: primaryBlue,
-          secondary: secondaryYellow,
-          onSurface: Colors.white, // Ensure text on surface is white
+          primary: electricCyan,
+          secondary: neonPink,
+          surface: const Color(0xFF1E1E45),
+          background: deepNavy,
         ),
+        scaffoldBackgroundColor: deepNavy,
         appBarTheme: const AppBarTheme(
           elevation: 0,
           centerTitle: true,
-          backgroundColor: Color(0xFF121212), // Standard dark background
-          foregroundColor: Colors.white, // FIX: Title and icons color in dark mode
+          backgroundColor: Color(0xFF0A0A2A),
+          foregroundColor: electricCyan,
           titleTextStyle: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 20,
-            color: Colors.white, // FIX: Explicitly set title color to white
-          ),
-          iconTheme: IconThemeData(color: Colors.white),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(16),
+            color: Colors.white,
+            letterSpacing: 1.2,
           ),
         ),
         cardTheme: CardThemeData(
@@ -116,16 +121,18 @@ class MyApp extends ConsumerWidget {
           margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
-            side: BorderSide(color: Colors.grey.withOpacity(0.1)),
+            side: BorderSide(color: electricCyan.withOpacity(0.2)),
           ),
+          color: const Color(0xFF1E1E45),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            backgroundColor: primaryBlue,
+            backgroundColor: vibrantViolet,
             foregroundColor: Colors.white,
             minimumSize: const Size(double.infinity, 50),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            elevation: 0,
+            elevation: 8,
+            shadowColor: vibrantViolet.withOpacity(0.5),
           ),
         ),
       ),
