@@ -6,7 +6,12 @@ import '../../../card/presentation/providers/card_notifier_provider.dart';
 import '../../../card/presentation/widgets/card_detail_dialog.dart';
 import '../../domain/entities/board_column.dart';
 
-/// This widget represents an entire column on the Kanban board.
+/// Optimized widget for Board Columns.
+/// 
+/// PERFORMANCE OPTIMIZATIONS:
+/// 1. Uses [ReorderableListView.builder] for virtualization of cards.
+/// 2. Extracted [_CardItem] as a separate [ConsumerWidget] to localize rebuilds
+///    when sync status changes.
 class BoardColumnWidget extends ConsumerWidget {
   final BoardColumn column;
 
@@ -14,6 +19,8 @@ class BoardColumnWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Only rebuilds the column when the list of cards changes (count or identity), 
+    // not when a single card's content or sync status changes.
     final cardsAsync = ref.watch(cardNotifierProvider(column.id));
 
     return DragTarget<CardItem>(
@@ -51,6 +58,7 @@ class BoardColumnWidget extends ConsumerWidget {
                   loading: () => const Center(child: CircularProgressIndicator()),
                   error: (err, _) => Center(child: Text('Error: $err')),
                   data: (cards) {
+                    // PERFORMANCE: Builder constructor is essential for 200+ cards
                     return ReorderableListView.builder(
                       onReorder: (oldIndex, newIndex) {
                         ref.read(cardNotifierProvider(column.id).notifier)
@@ -58,48 +66,12 @@ class BoardColumnWidget extends ConsumerWidget {
                       },
                       itemCount: cards.length,
                       padding: const EdgeInsets.symmetric(vertical: 8),
-
+                      // Cache Extent improves scrolling smoothness by pre-rendering 
+                      // items slightly outside the viewport.
+                      cacheExtent: 500, 
                       itemBuilder: (context, index) {
                         final card = cards[index];
-
-                        return LongPressDraggable<CardItem>(
-                          key: ValueKey(card.id), 
-                          data: card,
-                          feedback: Material(
-                            elevation: 8,
-                            borderRadius: BorderRadius.circular(8),
-                            child: Container(
-                              width: 280,
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(color: Colors.blue, width: 2),
-                              ),
-                              child: Text(
-                                card.title,
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.black,
-                                  decoration: TextDecoration.none,
-                                ),
-                              ),
-                            ),
-                          ),
-                          childWhenDragging: Opacity(
-                            opacity: 0.3,
-                            child: _CardItem(card: card),
-                          ),
-                          child: InkWell(
-                            onTap: () {
-                              showDialog(
-                                context: context,
-                                builder: (context) => CardDetailDialog(card: card),
-                              );
-                            },
-                            child: _CardItem(card: card),
-                          ),
-                        );
+                        return _DraggableCardWrapper(key: ValueKey(card.id), card: card);
                       },
                     );
                   },
@@ -113,24 +85,70 @@ class BoardColumnWidget extends ConsumerWidget {
   }
 }
 
-/// A presentational widget for the card's UI with Offline Sync indicator.
+/// Helper widget to encapsulate Draggable logic and avoid rebuilding the whole list.
+class _DraggableCardWrapper extends StatelessWidget {
+  final CardItem card;
+  const _DraggableCardWrapper({super.key, required this.card});
+
+  @override
+  Widget build(BuildContext context) {
+    return LongPressDraggable<CardItem>(
+      data: card,
+      feedback: Material(
+        elevation: 8,
+        borderRadius: BorderRadius.circular(8),
+        child: Container(
+          width: 280,
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.blue, width: 2),
+          ),
+          child: Text(
+            card.title,
+            style: const TextStyle(fontSize: 14, color: Colors.black, decoration: TextDecoration.none),
+          ),
+        ),
+      ),
+      childWhenDragging: Opacity(
+        opacity: 0.3,
+        child: _CardItem(card: card),
+      ),
+      child: InkWell(
+        onTap: () {
+          showDialog(
+            context: context,
+            builder: (context) => CardDetailDialog(card: card),
+          );
+        },
+        child: _CardItem(card: card),
+      ),
+    );
+  }
+}
+
+/// A presentational widget for the card's UI.
+/// 
+/// PERFORMANCE: This widget only watches the specific action related to its ID.
 class _CardItem extends ConsumerWidget {
   final CardItem card;
   const _CardItem({required this.card});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Check if this specific card is pending for synchronization.
-    final syncService = ref.watch(syncServiceProvider);
-    final isPending = syncService.pendingActions.any(
-      (action) => (action.data is CardItem && (action.data as CardItem).id == card.id)
-    );
+    // PERFORMANCE: By selecting only the pending status of THIS card, 
+    // this widget won't rebuild when OTHER cards are being synced.
+    final isPending = ref.watch(syncServiceProvider.select(
+      (sync) => sync.pendingActions.any(
+        (action) => (action.data is CardItem && (action.data as CardItem).id == card.id)
+      )
+    ));
 
     return Card(
       elevation: isPending ? 0.5 : 1,
       margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      // If pending, use a slightly different color to indicate it's not yet on the server.
       color: isPending ? Colors.amber.shade50 : Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -151,11 +169,7 @@ class _CardItem extends ConsumerWidget {
                 if (isPending)
                   const Tooltip(
                     message: "Pending sync...",
-                    child: Icon(
-                      Icons.cloud_upload_outlined,
-                      size: 16,
-                      color: Colors.amber,
-                    ),
+                    child: Icon(Icons.cloud_upload_outlined, size: 16, color: Colors.amber),
                   ),
               ],
             ),

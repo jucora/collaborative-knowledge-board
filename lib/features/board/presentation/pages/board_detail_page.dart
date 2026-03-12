@@ -4,7 +4,12 @@ import '../../../../core/widgets/real_time_simulator_panel.dart';
 import '../../../board_column/presentation/providers/board_column_future_provider.dart';
 import '../../../board_column/presentation/widgets/board_column_widget.dart';
 
-/// Página de detalle de un board.
+/// Board detail page optimized for performance.
+/// 
+/// PERFORMANCE OPTIMIZATION:
+/// 1. Uses [ListView.builder] for horizontal scrolling of columns to ensure 
+///    lazy loading and memory efficiency with many columns.
+/// 2. Uses [const] widgets where possible.
 class BoardDetailPage extends ConsumerWidget {
   final String boardId;
 
@@ -31,19 +36,20 @@ class BoardDetailPage extends ConsumerWidget {
                 return const Center(child: Text('No columns yet'));
               }
 
-              return SingleChildScrollView(
+              // PERFORMANCE: ListView.builder is used for horizontal scrolling 
+              // instead of Row + SingleChildScrollView to enable virtualization.
+              return ListView.builder(
                 scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: columns
-                      .map((column) => BoardColumnWidget(column: column))
-                      .toList(),
-                ),
+                itemCount: columns.length,
+                cacheExtent: 1000, // Pre-renders some columns for smoother scrolling
+                itemBuilder: (context, index) {
+                  return BoardColumnWidget(column: columns[index]);
+                },
               );
             },
           ),
           
           // REAL-TIME SIMULATOR PANEL
-          // This panel allows you to simulate external events and connection loss.
           boardColumnsAsync.whenData((columns) {
             if (columns.isEmpty) return const SizedBox.shrink();
             return RealTimeSimulatorPanel(
