@@ -12,11 +12,14 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
   late String columnId;
   StreamSubscription? _subscription;
 
+  // Track preview state for "Ghost" effect during inter-column drag
+  String? _previewCardId;
+  int? _previewIndex;
+
   @override
   Future<List<CardItem>> build(String arg) async {
     columnId = arg;
     
-    // Subscribe to real-time events from the repository
     final repository = ref.read(cardRepositoryProvider);
     _subscription?.cancel();
     _subscription = repository.watchCards().listen(_handleRealTimeEvent);
@@ -28,6 +31,37 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
           (failure) => throw Exception(failure.message),
           (cards) => cards,
     );
+  }
+
+  /// Updates the list visual order during an active drag from another column.
+  void updatePreview(CardItem draggedCard, double localY, double itemHeight) {
+    state = state.whenData((cards) {
+      // 1. Remove the card if it already exists in this column to calculate correct bounds
+      final List<CardItem> listWithoutDragged = cards.where((c) => c.id != draggedCard.id).toList();
+      
+      // 2. Calculate target index based on vertical position, clamped to the NEW list length
+      int newIndex = (localY / itemHeight).floor().clamp(0, listWithoutDragged.length);
+      
+      // Optimization: avoid redundant state updates
+      if (_previewIndex == newIndex && _previewCardId == draggedCard.id) return cards;
+
+      _previewIndex = newIndex;
+      _previewCardId = draggedCard.id;
+
+      // 3. Insert the "Ghost" card at the safe calculated position
+      listWithoutDragged.insert(newIndex, draggedCard);
+      
+      return listWithoutDragged;
+    });
+  }
+
+  /// Cleans up the preview state when the drag leaves the column or ends.
+  void removePreview(String cardId) {
+    if (_previewCardId == cardId) {
+      _previewCardId = null;
+      _previewIndex = null;
+      ref.invalidateSelf(); 
+    }
   }
 
   void _handleRealTimeEvent(RealTimeEvent event) {
@@ -105,7 +139,6 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
       createdAt: createdAt,
     );
 
-    // OPTIMISTIC UPDATE: Update the UI immediately regardless of connection status.
     addCardLocally(card);
 
     if (isOnline) {
@@ -120,7 +153,6 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
         createdAt: createdAt,
       );
     } else {
-      // OFFLINE SUPPORT: Queue the action for later synchronization.
       syncService.addAction('createCard', card);
     }
   }
@@ -130,14 +162,12 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     final isOnline = ref.read(realTimeServiceProvider).isConnected;
     final syncService = ref.read(syncServiceProvider);
 
-    // Optimistically update UI locally
     _updateCardLocally(card);
 
     if (isOnline) {
       final useCase = ref.read(updateCardUseCaseProvider);
       await useCase(card);
     } else {
-      // OFFLINE SUPPORT: Queue the action.
       syncService.addAction('updateCard', card);
     }
   }

@@ -6,7 +6,6 @@ import '../../../card/presentation/providers/card_notifier_provider.dart';
 import '../../../card/presentation/widgets/card_detail_dialog.dart';
 import '../../domain/entities/board_column.dart';
 
-/// Optimized and Responsive widget for Board Columns.
 class BoardColumnWidget extends ConsumerWidget {
   final BoardColumn column;
 
@@ -15,31 +14,60 @@ class BoardColumnWidget extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cardsAsync = ref.watch(cardNotifierProvider(column.id));
-    
-    // RESPONSIVE DESIGN:
-    // On small screens (mobile), columns take up 85% of the width.
-    // On larger screens, they stay at a comfortable 300px.
     final screenWidth = MediaQuery.of(context).size.width;
     final columnWidth = screenWidth < 600 ? screenWidth * 0.85 : 300.0;
+    
+    const double estimatedCardHeight = 85.0; 
 
     return DragTarget<CardItem>(
-      onWillAcceptWithDetails: (details) => details.data.columnId != column.id,
+      onWillAcceptWithDetails: (details) => true,
+      
+      onMove: (details) {
+        final renderBox = context.findRenderObject() as RenderBox;
+        final localPosition = renderBox.globalToLocal(details.offset);
+        final cardsAreaY = localPosition.dy - 65; 
+        
+        if (cardsAreaY > -estimatedCardHeight) {
+          ref.read(cardNotifierProvider(column.id).notifier)
+             .updatePreview(details.data, cardsAreaY, estimatedCardHeight);
+        }
+      },
+
+      onLeave: (data) {
+        if (data != null) {
+          ref.read(cardNotifierProvider(column.id).notifier).removePreview(data.id);
+        }
+      },
+
       onAcceptWithDetails: (details) async {
         final draggedCard = details.data;
-        final updatedCard = draggedCard.copyWith(columnId: column.id);
-        ref.read(cardNotifierProvider(column.id).notifier).addCardLocally(updatedCard);
-        await ref.read(cardNotifierProvider(draggedCard.columnId).notifier).updateCard(updatedCard);
+        final currentCards = ref.read(cardNotifierProvider(column.id)).value ?? [];
+        
+        for (int i = 0; i < currentCards.length; i++) {
+          final card = currentCards[i];
+          if (card.id == draggedCard.id || card.position != i) {
+            final updatedCard = card.copyWith(columnId: column.id, position: i);
+            await ref.read(cardNotifierProvider(draggedCard.columnId).notifier).updateCard(updatedCard);
+          }
+        }
+        
+        if (draggedCard.columnId != column.id) {
+          ref.invalidate(cardNotifierProvider(draggedCard.columnId));
+        }
+        
+        ref.read(cardNotifierProvider(column.id).notifier).removePreview(draggedCard.id);
       },
       builder: (context, candidateData, rejectedData) {
+        final theme = Theme.of(context);
         return Container(
           width: columnWidth,
           margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
             color: candidateData.isNotEmpty 
-                ? Theme.of(context).colorScheme.primary.withOpacity(0.05) 
-                : Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
+                ? theme.colorScheme.primary.withOpacity(0.05) 
+                : theme.colorScheme.surfaceVariant.withOpacity(0.4),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.grey.withOpacity(0.1)),
+            border: Border.all(color: theme.dividerColor.withOpacity(0.1)),
           ),
           child: Column(
             children: [
@@ -48,22 +76,18 @@ class BoardColumnWidget extends ConsumerWidget {
                 child: Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primary,
+                        color: theme.colorScheme.primary,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text(
-                        "${column.title[0].toUpperCase()}", // Simple icon/initial
-                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
+                      child: const Icon(Icons.list_alt_rounded, color: Colors.white, size: 18),
                     ),
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         column.title,
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ],
@@ -75,19 +99,23 @@ class BoardColumnWidget extends ConsumerWidget {
                   loading: () => const Center(child: CircularProgressIndicator()),
                   error: (err, _) => Center(child: Text('Error: $err')),
                   data: (cards) {
-                    return ReorderableListView.builder(
-                      onReorder: (oldIndex, newIndex) {
-                        ref.read(cardNotifierProvider(column.id).notifier).reorderCards(oldIndex, newIndex);
-                      },
+                    return ListView.builder(
                       itemCount: cards.length,
                       padding: const EdgeInsets.only(bottom: 20),
-                      cacheExtent: 500,
                       itemBuilder: (context, index) {
                         final card = cards[index];
-                        return _DraggableCardWrapper(
-                          key: ValueKey(card.id), 
-                          card: card,
-                          width: columnWidth - 20, // Adjust card width to column
+                        final isGhost = candidateData.isNotEmpty && 
+                                        candidateData.any((c) => c?.id == card.id);
+
+                        return AnimatedContainer(
+                          duration: const Duration(milliseconds: 200),
+                          key: ValueKey(card.id),
+                          child: isGhost 
+                            ? _GhostCard(width: columnWidth - 20)
+                            : _DraggableCardWrapper(
+                                card: card,
+                                width: columnWidth - 20,
+                              ),
                         );
                       },
                     );
@@ -102,6 +130,28 @@ class BoardColumnWidget extends ConsumerWidget {
   }
 }
 
+class _GhostCard extends StatelessWidget {
+  final double width;
+  const _GhostCard({required this.width});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: width,
+      height: 75,
+      margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
+          width: 2,
+        ),
+      ),
+    );
+  }
+}
+
 class _DraggableCardWrapper extends StatelessWidget {
   final CardItem card;
   final double width;
@@ -109,29 +159,35 @@ class _DraggableCardWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
     return LongPressDraggable<CardItem>(
       data: card,
       feedback: Material(
         elevation: 10,
         borderRadius: BorderRadius.circular(16),
+        color: Colors.transparent,
         child: Container(
           width: width,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: isDarkMode ? const Color(0xFF2C2C2C) : Colors.white,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Theme.of(context).colorScheme.primary, width: 2),
+            border: Border.all(color: theme.colorScheme.primary, width: 2),
           ),
           child: Text(
             card.title,
-            style: const TextStyle(fontSize: 14, color: Colors.black, decoration: TextDecoration.none),
+            style: TextStyle(
+              fontSize: 14, 
+              color: isDarkMode ? Colors.white : Colors.black, 
+              decoration: TextDecoration.none,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ),
       ),
-      childWhenDragging: Opacity(
-        opacity: 0.3,
-        child: _CardItem(card: card),
-      ),
+      childWhenDragging: const SizedBox.shrink(),
       child: InkWell(
         onTap: () {
           showDialog(
@@ -157,30 +213,30 @@ class _CardItem extends ConsumerWidget {
       )
     ));
 
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
     return Card(
-      elevation: isPending ? 0 : 0.5,
-      color: isPending ? Colors.amber.shade50 : Colors.white,
+      elevation: 0.5,
+      color: isPending 
+          ? (isDarkMode ? Colors.amber.shade900.withOpacity(0.3) : Colors.amber.shade50)
+          : null, 
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    card.title,
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      color: isPending ? Colors.black54 : Colors.black87,
-                      fontSize: 15,
-                    ),
-                  ),
+            Expanded(
+              child: Text(
+                card.title,
+                style: TextStyle(
+                  fontWeight: FontWeight.w600, 
+                  fontSize: 15,
+                  color: isDarkMode ? Colors.white : Colors.black87,
                 ),
-                if (isPending)
-                  const Icon(Icons.cloud_upload_outlined, size: 16, color: Colors.amber),
-              ],
+              ),
             ),
+            if (isPending)
+              const Icon(Icons.cloud_upload_outlined, size: 16, color: Colors.amber),
           ],
         ),
       ),
