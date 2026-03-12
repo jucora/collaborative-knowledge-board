@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/widgets/common/theme_toggle_button.dart';
+import '../../../auth/presentation/pages/login_page.dart';
 import '../providers/board_future_provider.dart';
 
 class BoardDashboardPage extends ConsumerWidget {
@@ -14,9 +15,15 @@ class BoardDashboardPage extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Boards'),
-        actions: const [
-          ThemeToggleButton(),
-          SizedBox(width: 8),
+        actions: [
+          const ThemeToggleButton(),
+          // LOGOUT BUTTON
+          IconButton(
+            icon: const Icon(Icons.logout_rounded),
+            onPressed: () => _showLogoutDialog(context, ref),
+            tooltip: "Logout",
+          ),
+          const SizedBox(width: 8),
         ],
       ),
       body: boardsAsync.when(
@@ -104,6 +111,30 @@ class BoardDashboardPage extends ConsumerWidget {
             },
           );
         },
+      ),
+    );
+  }
+
+  void _showLogoutDialog(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Logout"),
+        content: const Text("Are you sure you want to exit?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Cancel"),
+          ),
+          TextButton(
+            onPressed: () {
+              ref.read(authNotifierProvider.notifier).logout();
+              Navigator.pop(context); // Close dialog
+              context.go('/login'); // Force redirect
+            },
+            child: const Text("Logout", style: TextStyle(color: Colors.red)),
+          ),
+        ],
       ),
     );
   }
