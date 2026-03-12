@@ -6,12 +6,7 @@ import '../../../card/presentation/providers/card_notifier_provider.dart';
 import '../../../card/presentation/widgets/card_detail_dialog.dart';
 import '../../domain/entities/board_column.dart';
 
-/// Optimized widget for Board Columns.
-/// 
-/// PERFORMANCE OPTIMIZATIONS:
-/// 1. Uses [ReorderableListView.builder] for virtualization of cards.
-/// 2. Extracted [_CardItem] as a separate [ConsumerWidget] to localize rebuilds
-///    when sync status changes.
+/// Optimized and Responsive widget for Board Columns.
 class BoardColumnWidget extends ConsumerWidget {
   final BoardColumn column;
 
@@ -19,37 +14,59 @@ class BoardColumnWidget extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Only rebuilds the column when the list of cards changes (count or identity), 
-    // not when a single card's content or sync status changes.
     final cardsAsync = ref.watch(cardNotifierProvider(column.id));
+    
+    // RESPONSIVE DESIGN:
+    // On small screens (mobile), columns take up 85% of the width.
+    // On larger screens, they stay at a comfortable 300px.
+    final screenWidth = MediaQuery.of(context).size.width;
+    final columnWidth = screenWidth < 600 ? screenWidth * 0.85 : 300.0;
 
     return DragTarget<CardItem>(
       onWillAcceptWithDetails: (details) => details.data.columnId != column.id,
       onAcceptWithDetails: (details) async {
         final draggedCard = details.data;
         final updatedCard = draggedCard.copyWith(columnId: column.id);
-
         ref.read(cardNotifierProvider(column.id).notifier).addCardLocally(updatedCard);
-
-        await ref
-            .read(cardNotifierProvider(draggedCard.columnId).notifier)
-            .updateCard(updatedCard);
+        await ref.read(cardNotifierProvider(draggedCard.columnId).notifier).updateCard(updatedCard);
       },
       builder: (context, candidateData, rejectedData) {
         return Container(
-          width: 300,
-          margin: const EdgeInsets.symmetric(horizontal: 8),
+          width: columnWidth,
+          margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
-            color: candidateData.isNotEmpty ? Colors.blue.shade50 : Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(12),
+            color: candidateData.isNotEmpty 
+                ? Theme.of(context).colorScheme.primary.withOpacity(0.05) 
+                : Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.4),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.grey.withOpacity(0.1)),
           ),
           child: Column(
             children: [
               Padding(
-                padding: const EdgeInsets.all(12.0),
-                child: Text(
-                  column.title,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        "${column.title[0].toUpperCase()}", // Simple icon/initial
+                        style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        column.title,
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
                 ),
               ),
 
@@ -58,20 +75,20 @@ class BoardColumnWidget extends ConsumerWidget {
                   loading: () => const Center(child: CircularProgressIndicator()),
                   error: (err, _) => Center(child: Text('Error: $err')),
                   data: (cards) {
-                    // PERFORMANCE: Builder constructor is essential for 200+ cards
                     return ReorderableListView.builder(
                       onReorder: (oldIndex, newIndex) {
-                        ref.read(cardNotifierProvider(column.id).notifier)
-                            .reorderCards(oldIndex, newIndex);
+                        ref.read(cardNotifierProvider(column.id).notifier).reorderCards(oldIndex, newIndex);
                       },
                       itemCount: cards.length,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      // Cache Extent improves scrolling smoothness by pre-rendering 
-                      // items slightly outside the viewport.
-                      cacheExtent: 500, 
+                      padding: const EdgeInsets.only(bottom: 20),
+                      cacheExtent: 500,
                       itemBuilder: (context, index) {
                         final card = cards[index];
-                        return _DraggableCardWrapper(key: ValueKey(card.id), card: card);
+                        return _DraggableCardWrapper(
+                          key: ValueKey(card.id), 
+                          card: card,
+                          width: columnWidth - 20, // Adjust card width to column
+                        );
                       },
                     );
                   },
@@ -85,25 +102,25 @@ class BoardColumnWidget extends ConsumerWidget {
   }
 }
 
-/// Helper widget to encapsulate Draggable logic and avoid rebuilding the whole list.
 class _DraggableCardWrapper extends StatelessWidget {
   final CardItem card;
-  const _DraggableCardWrapper({super.key, required this.card});
+  final double width;
+  const _DraggableCardWrapper({super.key, required this.card, required this.width});
 
   @override
   Widget build(BuildContext context) {
     return LongPressDraggable<CardItem>(
       data: card,
       feedback: Material(
-        elevation: 8,
-        borderRadius: BorderRadius.circular(8),
+        elevation: 10,
+        borderRadius: BorderRadius.circular(16),
         child: Container(
-          width: 280,
-          padding: const EdgeInsets.all(12),
+          width: width,
+          padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.blue, width: 2),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Theme.of(context).colorScheme.primary, width: 2),
           ),
           child: Text(
             card.title,
@@ -128,17 +145,12 @@ class _DraggableCardWrapper extends StatelessWidget {
   }
 }
 
-/// A presentational widget for the card's UI.
-/// 
-/// PERFORMANCE: This widget only watches the specific action related to its ID.
 class _CardItem extends ConsumerWidget {
   final CardItem card;
   const _CardItem({required this.card});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // PERFORMANCE: By selecting only the pending status of THIS card, 
-    // this widget won't rebuild when OTHER cards are being synced.
     final isPending = ref.watch(syncServiceProvider.select(
       (sync) => sync.pendingActions.any(
         (action) => (action.data is CardItem && (action.data as CardItem).id == card.id)
@@ -146,12 +158,10 @@ class _CardItem extends ConsumerWidget {
     ));
 
     return Card(
-      elevation: isPending ? 0.5 : 1,
-      margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      elevation: isPending ? 0 : 0.5,
       color: isPending ? Colors.amber.shade50 : Colors.white,
       child: Padding(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -161,16 +171,14 @@ class _CardItem extends ConsumerWidget {
                   child: Text(
                     card.title,
                     style: TextStyle(
-                      fontWeight: FontWeight.w500,
-                      color: isPending ? Colors.black54 : Colors.black,
+                      fontWeight: FontWeight.w600,
+                      color: isPending ? Colors.black54 : Colors.black87,
+                      fontSize: 15,
                     ),
                   ),
                 ),
                 if (isPending)
-                  const Tooltip(
-                    message: "Pending sync...",
-                    child: Icon(Icons.cloud_upload_outlined, size: 16, color: Colors.amber),
-                  ),
+                  const Icon(Icons.cloud_upload_outlined, size: 16, color: Colors.amber),
               ],
             ),
           ],

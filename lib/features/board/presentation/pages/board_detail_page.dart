@@ -24,7 +24,6 @@ class BoardDetailPage extends ConsumerWidget {
       appBar: AppBar(
         title: const Text('Board Detail'),
         actions: [
-          // DARK MODE TOGGLE
           IconButton(
             icon: Icon(themeMode == ThemeMode.light ? Icons.dark_mode : Icons.light_mode),
             onPressed: () => ref.read(themeProvider.notifier).toggleTheme(),
@@ -35,9 +34,7 @@ class BoardDetailPage extends ConsumerWidget {
       body: Stack(
         children: [
           boardColumnsAsync.when(
-            // SKELETON LOADERS
             loading: () => _buildSkeletonLoader(),
-            // ERROR RETRY UI
             error: (error, _) => ErrorRetryWidget(
               message: error.toString(),
               onRetry: () => ref.invalidate(boardColumnsProvider(boardId)),
@@ -47,12 +44,27 @@ class BoardDetailPage extends ConsumerWidget {
                 return const Center(child: Text('No columns yet'));
               }
 
-              return ListView.builder(
-                scrollDirection: Axis.horizontal,
-                itemCount: columns.length,
-                cacheExtent: 1000,
-                itemBuilder: (context, index) {
-                  return BoardColumnWidget(column: columns[index]);
+              // DISTRIBUTED & CENTERED LAYOUT
+              // We use LayoutBuilder and ConstrainedBox to ensure the Row takes at least the full screen width,
+              // allowing spaceEvenly to distribute columns equitably.
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minWidth: constraints.maxWidth),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: columns
+                              .map((column) => BoardColumnWidget(column: column))
+                              .toList(),
+                        ),
+                      ),
+                    ),
+                  );
                 },
               );
             },
@@ -72,22 +84,31 @@ class BoardDetailPage extends ConsumerWidget {
   }
 
   Widget _buildSkeletonLoader() {
-    return ListView.builder(
-      scrollDirection: Axis.horizontal,
-      itemCount: 3,
-      itemBuilder: (context, index) => Container(
-        width: 300,
-        margin: const EdgeInsets.all(16),
-        child: const Column(
-          children: [
-            SkeletonLoader(height: 40, borderRadius: 12),
-            SizedBox(height: 16),
-            SkeletonLoader(height: 100, borderRadius: 12),
-            SizedBox(height: 16),
-            SkeletonLoader(height: 100, borderRadius: 12),
-          ],
-        ),
-      ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ConstrainedBox(
+            constraints: BoxConstraints(minWidth: constraints.maxWidth),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: List.generate(3, (index) => Container(
+                width: 300,
+                margin: const EdgeInsets.all(16),
+                child: const Column(
+                  children: [
+                    SkeletonLoader(height: 40, borderRadius: 12),
+                    SizedBox(height: 16),
+                    SkeletonLoader(height: 100, borderRadius: 12),
+                    SizedBox(height: 16),
+                    SkeletonLoader(height: 100, borderRadius: 12),
+                  ],
+                ),
+              )),
+            ),
+          ),
+        );
+      },
     );
   }
 }

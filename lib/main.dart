@@ -22,6 +22,10 @@ class MyApp extends ConsumerWidget {
     final router = ref.watch(appRouterProvider);
     final themeMode = ref.watch(themeProvider);
 
+    // Primary Colors from User
+    const primaryBlue = Color(0xFF1C5FF4);
+    const secondaryYellow = Color(0xFFF2BB31);
+
     return MaterialApp.router(
       title: 'Collaborative Knowledge Board',
       debugShowCheckedModeBanner: false,
@@ -32,23 +36,57 @@ class MyApp extends ConsumerWidget {
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
+          seedColor: primaryBlue,
+          primary: primaryBlue,
+          secondary: secondaryYellow,
+          surface: Colors.white,
+          background: const Color(0xFFF8F9FD),
           brightness: Brightness.light,
         ),
-        scaffoldBackgroundColor: Colors.grey[50],
+        scaffoldBackgroundColor: const Color(0xFFF8F9FD),
         appBarTheme: const AppBarTheme(
           elevation: 0,
-          centerTitle: false,
-        ),
-        inputDecorationTheme: const InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
+          centerTitle: true,
+          backgroundColor: Colors.white,
+          foregroundColor: primaryBlue,
+          titleTextStyle: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+            color: primaryBlue,
           ),
         ),
-        cardTheme: const CardThemeData(
-          elevation: 2,
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          fillColor: Colors.white,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: Colors.grey.shade200),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: primaryBlue, width: 2),
+          ),
+        ),
+        cardTheme: CardThemeData(
+          elevation: 0,
+          margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: Colors.grey.shade200),
+          ),
+          color: Colors.white,
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: primaryBlue,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(double.infinity, 50),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            elevation: 0,
           ),
         ),
       ),
@@ -57,22 +95,40 @@ class MyApp extends ConsumerWidget {
       darkTheme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: Colors.blue,
+          seedColor: primaryBlue,
           brightness: Brightness.dark,
+          primary: primaryBlue,
+          secondary: secondaryYellow,
         ),
         appBarTheme: const AppBarTheme(
           elevation: 0,
-          centerTitle: false,
-        ),
-        inputDecorationTheme: const InputDecorationTheme(
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
+          centerTitle: true,
+          titleTextStyle: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
           ),
         ),
-        cardTheme: const CardThemeData(
-          elevation: 2,
+        inputDecorationTheme: InputDecorationTheme(
+          filled: true,
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+        ),
+        cardTheme: CardThemeData(
+          elevation: 0,
+          margin: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(12)),
+            borderRadius: BorderRadius.circular(16),
+            side: BorderSide(color: Colors.grey.withOpacity(0.1)),
+          ),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: primaryBlue,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(double.infinity, 50),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            elevation: 0,
           ),
         ),
       ),

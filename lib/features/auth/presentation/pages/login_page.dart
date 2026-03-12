@@ -2,14 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/error/failures.dart';
+import '../../../../core/widgets/common/theme_toggle_button.dart';
 import '../../domain/entities/auth_session.dart';
 import '../providers/auth_notifier.dart';
 
-/// ------------------------------------------------------------
-/// AUTH NOTIFIER PROVIDER
-/// ------------------------------------------------------------
-/// Composition Root of feature Auth.
-///
 final authNotifierProvider =
 AsyncNotifierProvider<AuthNotifier, AuthSession?>(
   AuthNotifier.new,
@@ -25,13 +21,10 @@ class LoginPage extends ConsumerStatefulWidget {
 class _LoginPageState extends ConsumerState<LoginPage> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-
   final _formKey = GlobalKey<FormState>();
 
   @override
   Widget build(BuildContext context) {
-    final authState = ref.watch(authNotifierProvider);
-
     ref.listen(authNotifierProvider, (previous, next) {
       next.whenOrNull(
         data: (user) {
@@ -40,77 +33,81 @@ class _LoginPageState extends ConsumerState<LoginPage> {
           }
         },
         error: (error, _) {
-          final message = error is Failure
-              ? error.message
-              : 'Unexpected error';
-
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(message)),
-          );
+          final message = error is Failure ? error.message : 'Unexpected error';
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
         },
       );
     });
 
+    final authState = ref.watch(authNotifierProvider);
+
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        actions: const [ThemeToggleButton()],
+      ),
       body: Center(
-        child: SizedBox(
-          width: 350,
-          child: Card(
-            elevation: 4,
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'Login',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
+        child: SingleChildScrollView(
+          child: SizedBox(
+            width: 350,
+            child: Card(
+              elevation: 4,
+              child: Padding(
+                padding: const EdgeInsets.all(32),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.dashboard_customize_rounded,
+                        size: 64,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    TextFormField(
-                      controller: _emailController,
-                      decoration:
-                      const InputDecoration(labelText: 'Email'),
-                      validator: (value) =>
-                      value == null || value.isEmpty
-                          ? 'Email required'
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: true,
-                      decoration:
-                      const InputDecoration(labelText: 'Password'),
-                      validator: (value) =>
-                      value == null || value.isEmpty
-                          ? 'Password required'
-                          : null,
-                    ),
-                    const SizedBox(height: 24),
-
-                    authState.isLoading
-                        ? const CircularProgressIndicator()
-                        : ElevatedButton(
-                      onPressed: _submit,
-                      child: const Text('Login'),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    TextButton(
-                      onPressed: () =>
-                          context.go('/register'),
-                      child: const Text('Create account'),
-                    )
-                  ],
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Welcome Back',
+                        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Login to your collaborative board',
+                        style: TextStyle(color: Colors.grey),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 32),
+                      TextFormField(
+                        controller: _emailController,
+                        decoration: const InputDecoration(
+                          labelText: 'Email',
+                          prefixIcon: Icon(Icons.email_outlined),
+                        ),
+                        validator: (value) => value == null || value.isEmpty ? 'Email required' : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: true,
+                        decoration: const InputDecoration(
+                          labelText: 'Password',
+                          prefixIcon: Icon(Icons.lock_outline),
+                        ),
+                        validator: (value) => value == null || value.isEmpty ? 'Password required' : null,
+                      ),
+                      const SizedBox(height: 32),
+                      authState.isLoading
+                          ? const CircularProgressIndicator()
+                          : ElevatedButton(
+                              onPressed: _submit,
+                              child: const Text('Login'),
+                            ),
+                      const SizedBox(height: 16),
+                      TextButton(
+                        onPressed: () => context.go('/register'),
+                        child: const Text('Don\'t have an account? Register'),
+                      )
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -123,9 +120,9 @@ class _LoginPageState extends ConsumerState<LoginPage> {
   void _submit() {
     if (_formKey.currentState!.validate()) {
       ref.read(authNotifierProvider.notifier).login(
-        _emailController.text.trim(),
-        _passwordController.text.trim(),
-      );
+            _emailController.text.trim(),
+            _passwordController.text.trim(),
+          );
     }
   }
 }
