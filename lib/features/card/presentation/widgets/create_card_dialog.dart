@@ -48,38 +48,24 @@ class _CreateCardDialogState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-
-              /// TITLE
               TextFormField(
                 controller: _titleController,
-                decoration:
-                const InputDecoration(labelText: 'Title'),
-                validator: (value) =>
-                value == null || value.isEmpty
-                    ? 'Title is required'
-                    : null,
+                decoration: const InputDecoration(labelText: 'Title'),
+                validator: (value) => value == null || value.isEmpty ? 'Title is required' : null,
               ),
-
               const SizedBox(height: 12),
-
-              /// DESCRIPTION
               TextFormField(
                 controller: _descriptionController,
-                decoration: const InputDecoration(
-                    labelText: 'Description'),
+                decoration: const InputDecoration(labelText: 'Description'),
                 maxLines: 3,
               ),
-
               const SizedBox(height: 12),
-
-              /// COMMENT INPUT
               Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _commentController,
-                      decoration: const InputDecoration(
-                          labelText: 'Add comment'),
+                      decoration: const InputDecoration(labelText: 'Add comment'),
                     ),
                   ),
                   IconButton(
@@ -88,10 +74,7 @@ class _CreateCardDialogState
                   )
                 ],
               ),
-
               const SizedBox(height: 8),
-
-              /// COMMENTS PREVIEW
               Wrap(
                 spacing: 6,
                 children: _comments.map((comment) {
@@ -105,16 +88,11 @@ class _CreateCardDialogState
                   );
                 }).toList(),
               ),
-
               const SizedBox(height: 12),
-
-              /// DATE PICKER
               Row(
                 children: [
                   Expanded(
-                    child: Text(
-                      'Due: ${_createdAt.toLocal().toString().split(' ')[0]}',
-                    ),
+                    child: Text('Due: ${_createdAt.toLocal().toString().split(' ')[0]}'),
                   ),
                   TextButton(
                     onPressed: _pickDate,
@@ -126,40 +104,24 @@ class _CreateCardDialogState
           ),
         ),
       ),
-
       actions: [
-
-        /// CANCEL
         TextButton(
-          onPressed:
-          _isSubmitting ? null : () => Navigator.pop(context),
+          onPressed: _isSubmitting ? null : () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-
-        /// CREATE BUTTON
         ElevatedButton(
           onPressed: _isSubmitting ? null : _submit,
           child: _isSubmitting
-              ? const SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-            ),
-          )
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
               : const Text('Create'),
         ),
       ],
     );
   }
 
-  /// ADD COMMENT
   void _addComment() {
-
     final text = _commentController.text.trim();
-
     if (text.isEmpty) return;
-
     final newComment = Comment(
       id: UniqueKey().toString(),
       content: text,
@@ -167,70 +129,47 @@ class _CreateCardDialogState
       cardId: widget.columnId,
       authorId: 'currentUserId',
     );
-
     setState(() {
       _comments.add(newComment);
       _commentController.clear();
     });
   }
 
-  /// PICK DATE
   Future<void> _pickDate() async {
-
     final picked = await showDatePicker(
       context: context,
       firstDate: DateTime.now(),
       lastDate: DateTime(2100),
       initialDate: DateTime.now(),
     );
-
     if (picked != null) {
-      setState(() {
-        _createdAt = picked;
-      });
+      setState(() => _createdAt = picked);
     }
   }
 
-  /// SUBMIT CARD
   Future<void> _submit() async {
-
     if (!_formKey.currentState!.validate()) return;
 
-    setState(() {
-      _isSubmitting = true;
-    });
+    setState(() => _isSubmitting = true);
 
     try {
-
-      await ref
-          .read(cardNotifierProvider(widget.columnId).notifier)
-          .createCard(
+      // FIX: Get the current number of cards to set the position to the end
+      final currentCards = ref.read(cardNotifierProvider(widget.columnId)).value ?? [];
+      
+      await ref.read(cardNotifierProvider(widget.columnId).notifier).createCard(
         id: UniqueKey().toString(),
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
-        position: 0,
-        createdBy: 'currentUserId',
+        position: currentCards.length, // Set to the end
+        createdBy: 'User',
         createdAt: _createdAt,
       );
 
-      if (mounted) {
-        Navigator.pop(context);
-      }
-
+      if (mounted) Navigator.pop(context);
     } catch (e) {
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString())),
-      );
-
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
     } finally {
-
-      if (mounted) {
-        setState(() {
-          _isSubmitting = false;
-        });
-      }
-
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 }

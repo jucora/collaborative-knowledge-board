@@ -12,7 +12,6 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
   late String columnId;
   StreamSubscription? _subscription;
 
-  // Track preview state for "Ghost" effect during inter-column drag
   String? _previewCardId;
   int? _previewIndex;
 
@@ -33,29 +32,27 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     );
   }
 
-  /// Updates the list visual order during an active drag from another column.
+  /// Updates the list visual order during an active drag.
+  /// Uses round() to allow "snapping" when the pointer crosses the middle of an item.
   void updatePreview(CardItem draggedCard, double localY, double itemHeight) {
     state = state.whenData((cards) {
-      // 1. Remove the card if it already exists in this column to calculate correct bounds
       final List<CardItem> listWithoutDragged = cards.where((c) => c.id != draggedCard.id).toList();
       
-      // 2. Calculate target index based on vertical position, clamped to the NEW list length
-      int newIndex = (localY / itemHeight).floor().clamp(0, listWithoutDragged.length);
+      // FIX: Using round() makes it easier to target the last position 
+      // as it snaps to the next index as soon as you pass the 50% height of an item.
+      int newIndex = (localY / itemHeight).round().clamp(0, listWithoutDragged.length);
       
-      // Optimization: avoid redundant state updates
       if (_previewIndex == newIndex && _previewCardId == draggedCard.id) return cards;
 
       _previewIndex = newIndex;
       _previewCardId = draggedCard.id;
 
-      // 3. Insert the "Ghost" card at the safe calculated position
       listWithoutDragged.insert(newIndex, draggedCard);
       
       return listWithoutDragged;
     });
   }
 
-  /// Cleans up the preview state when the drag leaves the column or ends.
   void removePreview(String cardId) {
     if (_previewCardId == cardId) {
       _previewCardId = null;
@@ -117,7 +114,6 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     });
   }
 
-  /// Creates a card with Offline Support.
   Future<void> createCard({
     required String id,
     required String title,
@@ -157,7 +153,6 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     }
   }
 
-  /// Updates a card with Offline Support.
   Future<void> updateCard(CardItem card) async {
     final isOnline = ref.read(realTimeServiceProvider).isConnected;
     final syncService = ref.read(syncServiceProvider);
