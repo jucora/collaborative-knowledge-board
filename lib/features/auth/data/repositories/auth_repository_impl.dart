@@ -23,10 +23,8 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       final model = await remoteDataSource.login(email, password);
 
-      // Guardamos el token
       await secureStorage.saveToken(model.token);
 
-      // Convertimos a AuthSession (NO a User)
       final session = AuthSession(
         userId: model.id,
         token: model.token,

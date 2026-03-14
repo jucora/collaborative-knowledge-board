@@ -3,8 +3,6 @@ import '../../../../core/error/failures.dart';
 import '../entities/board.dart';
 import '../repositories/board_repository.dart';
 
-/// Caso de uso responsable de crear un nuevo board.
-/// Encapsula la intención de negocio.
 class CreateBoardUseCase {
   final BoardRepository repository;
 

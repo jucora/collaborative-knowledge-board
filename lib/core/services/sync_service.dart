@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../features/card/domain/repositories/card_repository.dart';
 import '../../features/card/presentation/providers/card_repository_provider.dart';
 import 'real_time_service.dart';
 
@@ -38,7 +37,9 @@ class SyncService extends ChangeNotifier {
     );
     _queue.add(action);
     notifyListeners();
-    print('Offline: Action queued - $type. Total: ${_queue.length}');
+    if (kDebugMode) {
+      print('Offline: Action queued - $type. Total: ${_queue.length}');
+    }
   }
 
   Future<void> sync() async {
@@ -46,7 +47,9 @@ class SyncService extends ChangeNotifier {
 
     _isSyncing = true;
     notifyListeners();
-    print('>>> SYNC START: Processing ${_queue.length} actions');
+    if (kDebugMode) {
+      print('>>> SYNC START: Processing ${_queue.length} actions');
+    }
     
     final List<PendingAction> actionsToProcess = List.from(_queue);
     
@@ -58,7 +61,9 @@ class SyncService extends ChangeNotifier {
     
     _isSyncing = false;
     notifyListeners();
-    print('>>> SYNC COMPLETE');
+    if (kDebugMode) {
+      print('>>> SYNC COMPLETE');
+    }
 
     // Force all Notifiers to refresh from the now-updated FakeDatabase
     _ref.read(realTimeServiceProvider).notify(RealTimeEventType.cardUpdated, null);

@@ -43,7 +43,6 @@ class BoardColumnNotifier extends FamilyAsyncNotifier<List<BoardColumn>, String>
 
     result.fold(
           (failure) {
-        // manejar error
       },
           (_) {
         state = state.whenData(

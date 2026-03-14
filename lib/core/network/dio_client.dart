@@ -3,11 +3,6 @@ import 'api_endpoints.dart';
 import 'auth_interceptor.dart';
 import '../storage/secure_storage_service.dart';
 
-/// Cliente HTTP centralizado.
-/// Toda la app debe usar esta instancia.
-///
-/// Evita crear Dio en cada repositorio.
-/// Garantiza configuración consistente.
 class DioClient {
   late final Dio _dio;
 
@@ -16,13 +11,10 @@ class DioClient {
       BaseOptions(
         baseUrl: ApiEndpoints.baseUrl,
 
-        /// Tiempo máximo de espera para conexión.
         connectTimeout: const Duration(seconds: 10),
 
-        /// Tiempo máximo para recibir respuesta.
         receiveTimeout: const Duration(seconds: 10),
 
-        /// Headers base globales.
         headers: {
           'Content-Type': 'application/json',
         },
@@ -36,7 +28,6 @@ class DioClient {
     _dio.interceptors.addAll([
       AuthInterceptor(secureStorageService),
 
-      /// Logging interceptor (solo en debug idealmente)
       LogInterceptor(
         requestBody: true,
         responseBody: true,

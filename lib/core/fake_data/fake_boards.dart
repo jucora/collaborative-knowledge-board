@@ -14,8 +14,8 @@ class FakeBoards {
         description: faker.lorem.sentence(),
         createdAt: DateTime.now().subtract(Duration(days: index * 2)),
         ownerId: boardMembers.first.id,
-        columns: [], // Puedes generar columnas de manera similar si lo deseas
-        members: boardMembers, // Todos los usuarios son miembros para simplificar
+        columns: [],
+        members: boardMembers,
       );
     });
   }

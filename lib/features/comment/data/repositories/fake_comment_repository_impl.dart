@@ -56,7 +56,7 @@ class FakeCommentRepositoryImpl extends CommentRepository {
   }) async {
     try {
       // Get existing comment to keep other fields
-      final comments = await commentDataSource.database.comments;
+      final comments = commentDataSource.database.comments;
       final existingIndex = comments.indexWhere((c) => c.id == id);
       if (existingIndex == -1) return const Left(ServerFailure('Comment not found'));
 

@@ -17,7 +17,7 @@ class FakeCards {
             title: faker.lorem.sentence(),
             description: faker.lorem.sentence(),
             position: i,
-            createdBy: 'user_${i % 3}', // Simula 3 usuarios diferentes
+            createdBy: 'user_${i % 3}',
             createdAt: DateTime.now().subtract(Duration(days: i),),
         ));
       }

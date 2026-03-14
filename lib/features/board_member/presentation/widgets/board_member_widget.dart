@@ -1,5 +1,4 @@
 import 'package:collaborative_knowledge_board/features/board_member/domain/entities/board_member.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 class BoardMemberWidget extends StatelessWidget {

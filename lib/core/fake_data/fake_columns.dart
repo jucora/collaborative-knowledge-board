@@ -17,7 +17,7 @@ class FakeColumns {
             boardId: board.id,
             title: titles[i],
             position: i,
-            cards: [], // Aquí podrías generar tarjetas falsas si lo deseas
+            cards: [],
           ),
         );
       }

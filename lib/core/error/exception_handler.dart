@@ -2,10 +2,6 @@ import 'dart:io';
 import 'package:dio/dio.dart';
 import 'failures.dart';
 
-/// Encargado de convertir excepciones técnicas
-/// en objetos Failure entendibles por el dominio.
-///
-/// La UI nunca debe recibir una excepción cruda.
 class ExceptionHandler {
   static Failure handle(Exception exception) {
     if (exception is DioException) {

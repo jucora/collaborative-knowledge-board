@@ -16,7 +16,7 @@ class FakeBoardMembers {
             userId: '${board.id}_${user.id}',
             boardId: board.id,
             role: 'member',
-            joinedAt: DateTime.now().subtract(Duration(days: 30)),
+            joinedAt: DateTime.now().subtract(const Duration(days: 30)),
           ),
         );
       }

@@ -16,7 +16,7 @@ class FakeAuthRepositoryImpl implements AuthRepository {
     required String email,
     required String password,
   }) async {
-    // Reducimos el delay para evitar problemas en los tests
+
     await Future.delayed(const Duration(milliseconds: 100));
 
     if (email == "test@test.com" && password == "123456") {
@@ -35,7 +35,7 @@ class FakeAuthRepositoryImpl implements AuthRepository {
       return Right(session);
     }
 
-    return Left(AuthFailure("Invalid credentials"));
+    return const Left(AuthFailure("Invalid credentials"));
   }
 
   @override
@@ -46,7 +46,7 @@ class FakeAuthRepositoryImpl implements AuthRepository {
     await Future.delayed(const Duration(milliseconds: 100));
 
     if (!email.contains("@")) {
-      return Left(AuthFailure("Invalid email"));
+      return const Left(AuthFailure("Invalid email"));
     }
 
     const fakeToken = "fake_jwt_token_123";

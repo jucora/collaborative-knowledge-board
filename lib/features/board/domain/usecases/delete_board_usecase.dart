@@ -2,7 +2,6 @@ import 'package:dartz/dartz.dart';
 import '../../../../core/error/failures.dart';
 import '../repositories/board_repository.dart';
 
-/// Caso de uso para eliminar un board.
 class DeleteBoardUseCase {
   final BoardRepository repository;
 
