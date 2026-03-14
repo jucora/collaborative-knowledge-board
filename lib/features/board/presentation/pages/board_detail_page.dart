@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/providers/theme_provider.dart';
@@ -19,6 +20,11 @@ class BoardDetailPage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final boardColumnsAsync = ref.watch(boardColumnsProvider(boardId));
     final themeMode = ref.watch(themeProvider);
+
+    // Only show simulator if specifically enabled via --dart-define=SHOW_SIMULATOR=true
+    // and we are not in release mode (extra safety).
+    const showSimulator = bool.fromEnvironment('SHOW_SIMULATOR', defaultValue: false);
+    const canShowSimulator = showSimulator && !kReleaseMode;
 
     return Scaffold(
       appBar: AppBar(
@@ -70,14 +76,15 @@ class BoardDetailPage extends ConsumerWidget {
             },
           ),
           
-          // REAL-TIME SIMULATOR PANEL
-          boardColumnsAsync.whenData((columns) {
-            if (columns.isEmpty) return const SizedBox.shrink();
-            return RealTimeSimulatorPanel(
-              currentBoardId: boardId,
-              firstColumnId: columns.first.id,
-            );
-          }).value ?? const SizedBox.shrink(),
+          // REAL-TIME SIMULATOR PANEL (Conditional)
+          if (canShowSimulator)
+            boardColumnsAsync.whenData((columns) {
+              if (columns.isEmpty) return const SizedBox.shrink();
+              return RealTimeSimulatorPanel(
+                currentBoardId: boardId,
+                firstColumnId: columns.first.id,
+              );
+            }).value ?? const SizedBox.shrink(),
         ],
       ),
     );
