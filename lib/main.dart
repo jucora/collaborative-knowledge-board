@@ -1,10 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/providers/theme_provider.dart';
 import 'core/router/app_router.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Supabase
+  await Supabase.initialize(
+    url: 'https://jbimmwecsawlbtgrdckv.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9'
+        '.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpiaW1td'
+        '2Vjc2F3bGJ0Z3JkY2t2Iiwicm9sZSI6ImFub24iLCJp'
+        'YXQiOjE3NzM1NTI0NzUsImV4cCI6MjA4OTEyODQ3NX0'
+        '.Cxuy8Cts9VvWSEbQY8Q8GVI4m68Z2kRR9-SwPkz14vk',
+  );
 
   runApp(
     const ProviderScope(

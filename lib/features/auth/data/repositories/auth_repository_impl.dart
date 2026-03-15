@@ -28,11 +28,11 @@ class AuthRepositoryImpl implements AuthRepository {
       final session = AuthSession(
         userId: model.userId,
         token: model.token,
-        expiresAt: model.expiresAt, // debe venir del model
+        expiresAt: model.expiresAt,
       );
 
       return Right(session);
-    } on Exception catch (e) {
+    } catch (e) {
       return Left(ExceptionHandler.handle(e));
     }
   }
@@ -54,7 +54,7 @@ class AuthRepositoryImpl implements AuthRepository {
       );
 
       return Right(session);
-    } on Exception catch (e) {
+    } catch (e) {
       return Left(ExceptionHandler.handle(e));
     }
   }

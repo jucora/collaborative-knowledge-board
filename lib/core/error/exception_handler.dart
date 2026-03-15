@@ -1,14 +1,23 @@
 import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'failures.dart';
 
 class ExceptionHandler {
-  static Failure handle(Exception exception) {
-    if (exception is DioException) {
-      return _handleDioError(exception);
+  static Failure handle(Object error) {
+    if (error is AuthException) {
+      return AuthFailure(error.message);
     }
 
-    if (exception is SocketException) {
+    if (error is PostgrestException) {
+      return ServerFailure(error.message);
+    }
+
+    if (error is DioException) {
+      return _handleDioError(error);
+    }
+
+    if (error is SocketException) {
       return const NetworkFailure(
         'No internet connection.',
       );
