@@ -1,29 +1,41 @@
 import '../../domain/entities/auth_session.dart';
 
-class AuthResponseModel {
-  final String id;
-  final String token;
-  final DateTime expiresAt; // ISO String desde backend
-
-  AuthResponseModel({
-    required this.id,
-    required this.token,
-    required this.expiresAt,
+class AuthResponseModel extends AuthSession {
+  const AuthResponseModel({
+    required super.userId,
+    required super.token,
+    required super.expiresAt,
   });
 
   factory AuthResponseModel.fromJson(Map<String, dynamic> json) {
     return AuthResponseModel(
-      id: json['id'],
-      token: json['token'],
-      expiresAt: json['expires_at'],
+      userId: json['id'] as String,
+      token: json['token'] as String,
+      expiresAt: DateTime.parse(json['expires_at'] as String),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'id': userId,
+      'token': token,
+      'expires_at': expiresAt.toIso8601String(),
+    };
   }
 
   AuthSession toEntity() {
     return AuthSession(
-      userId: id,
+      userId: userId,
       token: token,
       expiresAt: expiresAt,
+    );
+  }
+
+  factory AuthResponseModel.fromEntity(AuthSession entity) {
+    return AuthResponseModel(
+      userId: entity.userId,
+      token: entity.token,
+      expiresAt: entity.expiresAt,
     );
   }
 }

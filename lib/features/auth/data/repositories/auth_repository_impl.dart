@@ -26,7 +26,7 @@ class AuthRepositoryImpl implements AuthRepository {
       await secureStorage.saveToken(model.token);
 
       final session = AuthSession(
-        userId: model.id,
+        userId: model.userId,
         token: model.token,
         expiresAt: model.expiresAt, // debe venir del model
       );
@@ -48,7 +48,7 @@ class AuthRepositoryImpl implements AuthRepository {
       await secureStorage.saveToken(model.token);
 
       final session = AuthSession(
-        userId: model.id,
+        userId: model.userId,
         token: model.token,
         expiresAt: model.expiresAt,
       );

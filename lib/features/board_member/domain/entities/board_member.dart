@@ -15,13 +15,13 @@ class BoardMember {
     String? userId,
     String? boardId,
     String? role,
-    String? joinedAt,
+    DateTime? joinedAt,
   }) {
     return BoardMember(
-      userId: this.userId,
-      boardId: this.boardId,
-      role: this.role,
-      joinedAt: this.joinedAt,
+      userId: userId ?? this.userId,
+      boardId: boardId ?? this.boardId,
+      role: role ?? this.role,
+      joinedAt: joinedAt ?? this.joinedAt,
     );
   }
 }
