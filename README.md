@@ -3,7 +3,9 @@
 A modern, high-performance task management application built with Flutter, designed for seamless team collaboration. This project implements a sophisticated **Offline-First** architecture with real-time synchronization capabilities.
 
 ---
-### 👨‍💻 Author: [Julian Belmonte](https://www.linkedin.com/in/julianbel/)
+### 👨‍💻 Author
+**Julian Andres Belmonte Ortiz**  
+[![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/julianbel/)
 
 ---
 
@@ -22,6 +24,7 @@ The project follows **Clean Architecture** principles, ensuring scalability, mai
 
 *   **Framework:** [Flutter](https://flutter.dev)
 *   **State Management:** [Riverpod 2.0](https://riverpod.dev) (using `AsyncNotifier`, `FamilyAsyncNotifier`, and code generation).
+*   **Backend:** [Supabase](https://supabase.com/) for authentication and real-time database.
 *   **Navigation:** [GoRouter](https://pub.dev/packages/go_router) for declarative routing.
 *   **Functional Programming:** [Dartz](https://pub.dev/packages/dartz) for `Either` types and functional error handling.
 *   **Dependency Injection:** Handled natively via Riverpod Providers.
@@ -64,4 +67,4 @@ flutter run --dart-define=SHOW_SIMULATOR=true
     ```
 
 ---
-*Collaborative Knowledge Board - 2026*
+*Collaborative Knowledge Board - 2024*
