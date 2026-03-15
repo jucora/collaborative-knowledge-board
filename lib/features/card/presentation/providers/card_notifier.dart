@@ -38,8 +38,6 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     state = state.whenData((cards) {
       final List<CardItem> listWithoutDragged = cards.where((c) => c.id != draggedCard.id).toList();
       
-      // FIX: Using round() makes it easier to target the last position 
-      // as it snaps to the next index as soon as you pass the 50% height of an item.
       int newIndex = (localY / itemHeight).round().clamp(0, listWithoutDragged.length);
       
       if (_previewIndex == newIndex && _previewCardId == draggedCard.id) return cards;
@@ -57,7 +55,6 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     if (_previewCardId == cardId) {
       _previewCardId = null;
       _previewIndex = null;
-      ref.invalidateSelf(); 
     }
   }
 
@@ -68,6 +65,16 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     }
 
     final card = event.data as CardItem;
+    
+    // OFFLINE-FIRST: We ignore events for our own cards that are currently pending sync.
+    // This prevents the "jumping" effect where a local update is overwritten by 
+    // an older (or same) state from the server/repository before sync finishes.
+    final syncService = ref.read(syncServiceProvider);
+    final isPending = syncService.pendingActions.any(
+      (a) => a.data is CardItem && (a.data as CardItem).id == card.id
+    );
+    
+    if (isPending) return;
 
     switch (event.type) {
       case RealTimeEventType.cardCreated:

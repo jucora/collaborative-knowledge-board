@@ -63,20 +63,34 @@ class _BoardColumnWidgetState extends ConsumerState<BoardColumnWidget> {
       },
       onAcceptWithDetails: (details) async {
         final draggedCard = details.data;
+        
+        // When a card is accepted, it is already "physically" in the correct position 
+        // in the CardNotifier's state due to the preview logic.
+        // We just need to trigger the actual update to persist this position.
+        
         final currentCards = ref.read(cardNotifierProvider(widget.column.id)).value ?? [];
         
+        // Important: We iterate over currentCards to update ALL affected cards' positions.
         for (int i = 0; i < currentCards.length; i++) {
           final card = currentCards[i];
+          // If it's the dragged card OR its position property doesn't match its index in the list
           if (card.id == draggedCard.id || card.position != i) {
             final updatedCard = card.copyWith(columnId: widget.column.id, position: i);
-            await ref.read(cardNotifierProvider(draggedCard.columnId).notifier).updateCard(updatedCard);
+            
+            // We call the updateCard of the ORIGIN column notifier because it's the one
+            // responsible for the logic (even if it's moving between columns).
+            // Actually, we should call the update on the notifier where the card is NOW.
+            await ref.read(cardNotifierProvider(widget.column.id).notifier).updateCard(updatedCard);
           }
         }
         
+        // If moving between columns, invalidate the source column to cleanup
         if (draggedCard.columnId != widget.column.id) {
           ref.invalidate(cardNotifierProvider(draggedCard.columnId));
         }
         
+        // We DON'T removePreview here because updateCard already updated the state with the real card.
+        // But for safety and to clear the internal notifier variables:
         ref.read(cardNotifierProvider(widget.column.id).notifier).removePreview(draggedCard.id);
       },
       builder: (context, candidateData, rejectedData) {
