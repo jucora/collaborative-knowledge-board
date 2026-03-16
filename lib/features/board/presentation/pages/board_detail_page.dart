@@ -5,7 +5,7 @@ import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/widgets/common/error_retry_widget.dart';
 import '../../../../core/widgets/common/skeleton_loader.dart';
 import '../../../../core/widgets/real_time_simulator_panel.dart';
-import '../../../board_column/presentation/providers/board_column_future_provider.dart';
+import '../../../board_column/presentation/providers/board_column_notifier.dart';
 import '../../../board_column/presentation/widgets/board_column_widget.dart';
 
 class BoardDetailPage extends ConsumerWidget {
@@ -18,18 +18,22 @@ class BoardDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final boardColumnsAsync = ref.watch(boardColumnsProvider(boardId));
+    // Migrated from FutureProvider to NotifierProvider for action support
+    final boardColumnsAsync = ref.watch(boardColumnNotifierProvider(boardId));
     final themeMode = ref.watch(themeProvider);
 
-    // Only show simulator if specifically enabled via --dart-define=SHOW_SIMULATOR=true
-    // and we are not in release mode (extra safety).
     const showSimulator = bool.fromEnvironment('SHOW_SIMULATOR', defaultValue: false);
-    const canShowSimulator = showSimulator && !kReleaseMode;
+    final canShowSimulator = showSimulator && !kReleaseMode;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Board Detail'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.add_rounded), // Fixed: used a standard icon
+            onPressed: () => _showAddColumnDialog(context, ref),
+            tooltip: "Add Column",
+          ),
           IconButton(
             icon: Icon(themeMode == ThemeMode.light ? Icons.dark_mode : Icons.light_mode),
             onPressed: () => ref.read(themeProvider.notifier).toggleTheme(),
@@ -43,16 +47,26 @@ class BoardDetailPage extends ConsumerWidget {
             loading: () => _buildSkeletonLoader(),
             error: (error, _) => ErrorRetryWidget(
               message: error.toString(),
-              onRetry: () => ref.invalidate(boardColumnsProvider(boardId)),
+              onRetry: () => ref.invalidate(boardColumnNotifierProvider(boardId)),
             ),
             data: (columns) {
               if (columns.isEmpty) {
-                return const Center(child: Text('No columns yet'));
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text('No columns yet'),
+                      const SizedBox(height: 16),
+                      ElevatedButton.icon(
+                        onPressed: () => _showAddColumnDialog(context, ref),
+                        icon: const Icon(Icons.add),
+                        label: const Text("Create First Column"),
+                      )
+                    ],
+                  ),
+                );
               }
 
-              // DISTRIBUTED & CENTERED LAYOUT
-              // We use LayoutBuilder and ConstrainedBox to ensure the Row takes at least the full screen width,
-              // allowing spaceEvenly to distribute columns equitably.
               return LayoutBuilder(
                 builder: (context, constraints) {
                   return SingleChildScrollView(
@@ -62,11 +76,13 @@ class BoardDetailPage extends ConsumerWidget {
                       child: Padding(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          mainAxisAlignment: MainAxisAlignment.start,
                           crossAxisAlignment: CrossAxisAlignment.start,
-                          children: columns
-                              .map((column) => BoardColumnWidget(column: column))
-                              .toList(),
+                          children: [
+                            ...columns.map((column) => BoardColumnWidget(column: column)),
+                            // Shortcut to add column at the end
+                            _buildAddColumnButton(context, ref),
+                          ],
                         ),
                       ),
                     ),
@@ -76,7 +92,6 @@ class BoardDetailPage extends ConsumerWidget {
             },
           ),
           
-          // REAL-TIME SIMULATOR PANEL (Conditional)
           if (canShowSimulator)
             boardColumnsAsync.whenData((columns) {
               if (columns.isEmpty) return const SizedBox.shrink();
@@ -86,6 +101,55 @@ class BoardDetailPage extends ConsumerWidget {
               );
             }).value ?? const SizedBox.shrink(),
         ],
+      ),
+    );
+  }
+
+  void _showAddColumnDialog(BuildContext context, WidgetRef ref) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("New Column"),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: "Column title (e.g. To Do, In Progress)",
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          ElevatedButton(
+            onPressed: () {
+              if (controller.text.isNotEmpty) {
+                ref.read(boardColumnNotifierProvider(boardId).notifier).createColumn(controller.text);
+                Navigator.pop(context);
+              }
+            },
+            child: const Text("Create"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAddColumnButton(BuildContext context, WidgetRef ref) {
+    return Container(
+      width: 280,
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: OutlinedButton.icon(
+        onPressed: () => _showAddColumnDialog(context, ref),
+        icon: const Icon(Icons.add),
+        label: const Text("Add another column"),
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 20),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          side: BorderSide(
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
+            style: BorderStyle.solid,
+          ),
+        ),
       ),
     );
   }
