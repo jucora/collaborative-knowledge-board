@@ -107,7 +107,6 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
           return cards.map((c) => c.id == updatedCard.id ? cardModel : c).toList()
             ..sort((a, b) => a.position.compareTo(b.position));
         } else {
-          // If it doesn't exist by ID, try to find an optimistic match to replace it
           return _addOrMergeCard(cards, cardModel);
         }
       } else {
@@ -137,7 +136,7 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     final syncService = ref.read(syncServiceProvider);
 
     final card = CardItemModel(
-      id: id, // Numeric temp ID
+      id: id,
       columnId: columnId,
       title: title,
       description: description,
@@ -163,7 +162,6 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
       result.fold(
         (failure) => _removeCardLocally(id),
         (realCard) {
-          // Immediately replace the temp ID with the real one to be ready for real-time events
           state = state.whenData((cards) {
             final List<CardItem> newList = cards.map((c) => c.id == id ? CardItemModel.fromEntity(realCard) : c).toList();
             return newList;
@@ -184,7 +182,6 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
 
     if (isOnline) {
       final useCase = ref.read(updateCardUseCaseProvider);
-      // Fixed: Passing the CardItem object directly as expected by UpdateCardUseCase.call(CardItem card)
       await useCase(card);
     } else {
       syncService.addAction('updateCard', CardItemModel.fromEntity(card));
@@ -195,6 +192,27 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     });
   }
 
+  Future<void> deleteCard(String cardId) async {
+    final isOnline = ref.read(realTimeServiceProvider).isConnected;
+    
+    // 1. UI Update (Optimistic)
+    _removeCardLocally(cardId);
+
+    if (isOnline) {
+      final useCase = ref.read(deleteCardUseCaseProvider);
+      final result = await useCase(cardId);
+      
+      result.fold(
+        (failure) => ref.invalidateSelf(), // Revert on failure
+        (_) => null, // Success
+      );
+    } else {
+      // In offline mode, the sync service would handle it. 
+      // For now, let's keep it simple as we are mostly testing online.
+      ref.read(syncServiceProvider).addAction('deleteCard', cardId);
+    }
+  }
+
   void addCardLocally(CardItem card) {
     state = state.whenData((cards) {
       if (cards.any((c) => c.id == card.id)) return cards;
@@ -202,18 +220,16 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     });
   }
 
-  /// Helper to add a card or merge it if an optimistic (temp ID) version exists
   List<CardItem> _addOrMergeCard(List<CardItem> cards, CardItemModel newCard) {
-    // Look for a card with same title/pos that has a temporary numeric ID
     final optimisticIndex = cards.indexWhere((c) => 
       c.title == newCard.title && 
       c.position == newCard.position && 
-      RegExp(r'^\d+$').hasMatch(c.id) // Check if ID is numeric (temp timestamp)
+      RegExp(r'^\d+$').hasMatch(c.id)
     );
 
     if (optimisticIndex != -1) {
       final List<CardItem> newList = List.from(cards);
-      newList[optimisticIndex] = newCard; // Replace temp with real
+      newList[optimisticIndex] = newCard;
       return newList;
     }
 
