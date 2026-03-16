@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:dartz/dartz.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/error/exception_handler.dart';
@@ -62,7 +63,7 @@ class CardRepositoryImpl implements CardRepository {
     required DateTime createdAt,
   }) async {
     try {
-      final card = CardItem(
+      final cardModel = CardItemModel(
         id: id,
         columnId: columnId,
         title: title,
@@ -72,9 +73,7 @@ class CardRepositoryImpl implements CardRepository {
         createdAt: createdAt,
       );
 
-      final model = await remoteDataSource.updateCard(
-        CardItemModel.fromEntity(card),
-      );
+      final model = await remoteDataSource.updateCard(cardModel);
       return Right(model);
     } catch (e) {
       return Left(ExceptionHandler.handle(e));
@@ -95,11 +94,48 @@ class CardRepositoryImpl implements CardRepository {
   Stream<RealTimeEvent> watchCards() {
     if (useFakeData) return const Stream.empty();
 
-    // SUPABASE REAL-TIME
-    // Using .stream() is the most straightforward way to listen to table changes in Flutter.
-    return _supabase
-        .from('cards')
-        .stream(primaryKey: ['id'])
-        .map((_) => RealTimeEvent(RealTimeEventType.cardUpdated, null));
+    final controller = StreamController<RealTimeEvent>();
+
+    final channel = _supabase.channel('public:cards');
+    
+    channel.onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'cards',
+      callback: (payload) {
+        final eventType = payload.eventType;
+        
+        RealTimeEventType type;
+        Map<String, dynamic>? data;
+
+        if (eventType == PostgresChangeEvent.insert) {
+          type = RealTimeEventType.cardCreated;
+          data = payload.newRecord;
+        } else if (eventType == PostgresChangeEvent.update) {
+          type = RealTimeEventType.cardUpdated;
+          data = payload.newRecord;
+        } else if (eventType == PostgresChangeEvent.delete) {
+          type = RealTimeEventType.cardDeleted;
+          data = payload.oldRecord;
+        } else {
+          return;
+        }
+
+        if (!controller.isClosed) {
+          controller.add(RealTimeEvent(
+            type,
+            data != null ? CardItemModel.fromJson(data) : null,
+          ));
+        }
+      },
+    ).subscribe();
+
+    // Properly clean up resources when the listener cancels the subscription
+    controller.onCancel = () {
+      _supabase.removeChannel(channel);
+      controller.close();
+    };
+
+    return controller.stream;
   }
 }

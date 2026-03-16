@@ -15,6 +15,9 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
 
   String? _previewCardId;
   int? _previewIndex;
+  
+  // Track IDs of cards updated locally to avoid UI jumps during sync
+  final Set<String> _locallyUpdatedIds = {};
 
   @override
   Future<List<CardItem>> build(String arg) async {
@@ -33,12 +36,9 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     );
   }
 
-  /// Updates the list visual order during an active drag.
-  /// Uses round() to allow "snapping" when the pointer crosses the middle of an item.
   void updatePreview(CardItem draggedCard, double localY, double itemHeight) {
     state = state.whenData((cards) {
       final List<CardItem> listWithoutDragged = cards.where((c) => c.id != draggedCard.id).toList();
-      
       int newIndex = (localY / itemHeight).round().clamp(0, listWithoutDragged.length);
       
       if (_previewIndex == newIndex && _previewCardId == draggedCard.id) return cards;
@@ -62,12 +62,15 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
 
   void _handleRealTimeEvent(RealTimeEvent event) {
     if (event.data == null) {
-      ref.invalidateSelf();
+      if (_locallyUpdatedIds.isEmpty) {
+        ref.invalidateSelf();
+      }
       return;
     }
 
     final card = event.data as CardItem;
-    
+    if (_locallyUpdatedIds.contains(card.id)) return;
+
     final syncService = ref.read(syncServiceProvider);
     final isPending = syncService.pendingActions.any(
       (a) => a.data is CardItem && (a.data as CardItem).id == card.id
@@ -104,9 +107,8 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
           return cards.map((c) => c.id == updatedCard.id ? cardModel : c).toList()
             ..sort((a, b) => a.position.compareTo(b.position));
         } else {
-          final List<CardItem> newList = [...cards, cardModel];
-          newList.sort((a, b) => a.position.compareTo(b.position));
-          return newList;
+          // If it doesn't exist by ID, try to find an optimistic match to replace it
+          return _addOrMergeCard(cards, cardModel);
         }
       } else {
         if (existsLocally) {
@@ -135,7 +137,7 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     final syncService = ref.read(syncServiceProvider);
 
     final card = CardItemModel(
-      id: id,
+      id: id, // Numeric temp ID
       columnId: columnId,
       title: title,
       description: description,
@@ -148,7 +150,7 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
 
     if (isOnline) {
       final useCase = ref.read(createCardUseCaseProvider);
-      await useCase(
+      final result = await useCase(
         id: id,
         columnId: columnId,
         title: title,
@@ -156,6 +158,17 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
         position: position,
         createdBy: createdBy,
         createdAt: createdAt,
+      );
+      
+      result.fold(
+        (failure) => _removeCardLocally(id),
+        (realCard) {
+          // Immediately replace the temp ID with the real one to be ready for real-time events
+          state = state.whenData((cards) {
+            final List<CardItem> newList = cards.map((c) => c.id == id ? CardItemModel.fromEntity(realCard) : c).toList();
+            return newList;
+          });
+        }
       );
     } else {
       syncService.addAction('createCard', card);
@@ -166,24 +179,47 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     final isOnline = ref.read(realTimeServiceProvider).isConnected;
     final syncService = ref.read(syncServiceProvider);
 
+    _locallyUpdatedIds.add(card.id);
     _updateCardLocally(card);
 
     if (isOnline) {
       final useCase = ref.read(updateCardUseCaseProvider);
+      // Fixed: Passing the CardItem object directly as expected by UpdateCardUseCase.call(CardItem card)
       await useCase(card);
     } else {
       syncService.addAction('updateCard', CardItemModel.fromEntity(card));
     }
+    
+    Future.delayed(const Duration(milliseconds: 1000), () {
+      _locallyUpdatedIds.remove(card.id);
+    });
   }
 
   void addCardLocally(CardItem card) {
     state = state.whenData((cards) {
       if (cards.any((c) => c.id == card.id)) return cards;
-      final cardModel = CardItemModel.fromEntity(card);
-      final List<CardItem> newList = [...cards, cardModel];
-      newList.sort((a, b) => a.position.compareTo(b.position));
-      return newList;
+      return _addOrMergeCard(cards, CardItemModel.fromEntity(card));
     });
+  }
+
+  /// Helper to add a card or merge it if an optimistic (temp ID) version exists
+  List<CardItem> _addOrMergeCard(List<CardItem> cards, CardItemModel newCard) {
+    // Look for a card with same title/pos that has a temporary numeric ID
+    final optimisticIndex = cards.indexWhere((c) => 
+      c.title == newCard.title && 
+      c.position == newCard.position && 
+      RegExp(r'^\d+$').hasMatch(c.id) // Check if ID is numeric (temp timestamp)
+    );
+
+    if (optimisticIndex != -1) {
+      final List<CardItem> newList = List.from(cards);
+      newList[optimisticIndex] = newCard; // Replace temp with real
+      return newList;
+    }
+
+    final List<CardItem> newList = [...cards, newCard];
+    newList.sort((a, b) => a.position.compareTo(b.position));
+    return newList;
   }
 
   Future<void> reorderCards(int oldIndex, int newIndex) async {

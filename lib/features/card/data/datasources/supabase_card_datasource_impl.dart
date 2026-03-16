@@ -28,10 +28,11 @@ class SupabaseCardDataSourceImpl implements CardRemoteDataSource {
     required String createdBy,
     required DateTime createdAt,
   }) async {
+    // We remove 'id' from the insert map to allow Supabase 
+    // to generate a real UUID automatically.
     final response = await _client
         .from('cards')
         .insert({
-          'id': id,
           'columnId': columnId,
           'title': title,
           'description': description,
