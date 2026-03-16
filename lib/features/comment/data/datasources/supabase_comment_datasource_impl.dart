@@ -20,13 +20,30 @@ class SupabaseCommentDataSourceImpl implements CommentRemoteDataSource {
 
   @override
   Future<CommentModel> addComment(CommentModel comment) async {
+    final data = comment.toJson();
+    data.remove('id');
+    
     final response = await _client
         .from('comments')
-        .insert(comment.toJson())
+        .insert(data)
         .select()
         .single();
 
     return CommentModel.fromJson(response);
+  }
+
+  @override
+  Future<void> updateComment(CommentModel comment) async {
+    // Only send fields that are allowed to change to avoid UUID format errors
+    // with placeholder data (like empty strings for cardId/authorId)
+    await _client
+        .from('comments')
+        .update({
+          'content': comment.content,
+          'updated_at': comment.updatedAt?.toIso8601String(),
+          'mentioned_user_ids': comment.mentionedUserIds,
+        })
+        .eq('id', comment.id);
   }
 
   @override

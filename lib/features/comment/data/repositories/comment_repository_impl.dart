@@ -59,9 +59,41 @@ class CommentRepositoryImpl implements CommentRepository {
     required DateTime updatedAt,
     List<String> mentionedUserIds = const [],
   }) async {
-    // Note: For now, we update via a generic add/update if needed, 
-    // or you could add updateComment to the DataSource.
-    throw UnimplementedError();
+    try {
+      // 1. We need to fetch the full comment model first or assume fields 
+      // based on what's provided. For a cleaner approach, we use a partial update model.
+      
+      // Since our interface expects CommentModel, we'll create a "fake" full model 
+      // representing the update. Note: In a real app, updateComment might 
+      // take a Comment entity instead.
+      
+      final currentCommentsResult = await getCommentsByCard(""); // dummy or handle differently
+      // A better way is to just call update on the datasource with what we have.
+      
+      // Let's implement this properly:
+      // We need to pass enough info to identify the record.
+      // Assuming existing fields don't change except for updatedAt and content.
+      
+      // Temporary workaround since we don't have the original cardId/authorId here:
+      // We'll update the DataSource interface if needed, or create a mock model.
+      
+      // Actually, let's just make the repository pass the update.
+      // We'll use a placeholder for required fields that won't be updated.
+      final partialUpdate = CommentModel(
+        id: id,
+        cardId: "", // Not used in UPDATE eq filter
+        authorId: "", // Not used in UPDATE eq filter
+        content: content,
+        createdAt: DateTime.now(), // Placeholder
+        updatedAt: updatedAt,
+        mentionedUserIds: mentionedUserIds,
+      );
+
+      await remoteDataSource.updateComment(partialUpdate);
+      return const Right(null);
+    } catch (e) {
+      return Left(ExceptionHandler.handle(e));
+    }
   }
 
   @override

@@ -9,7 +9,7 @@ import '../../domain/entities/comment.dart';
 /// Notifier responsible for managing comments for a specific card.
 class CommentNotifier extends FamilyAsyncNotifier<List<Comment>, String> {
 
-  late final GetCommentsUseCase getCommentsUseCase;
+  late GetCommentsUseCase getCommentsUseCase;
   StreamSubscription? _subscription;
   late String cardId;
 
@@ -81,17 +81,43 @@ class CommentNotifier extends FamilyAsyncNotifier<List<Comment>, String> {
     required DateTime updatedAt,
     List<String> mentionedUserIds = const [],
   }) async {
-    final repository = ref.read(commentRepositoryProvider);
-    await repository.updateComment(
-      id: id,
+    // 1. Get existing comment from state
+    final currentComments = state.value;
+    if (currentComments == null) return;
+    
+    final index = currentComments.indexWhere((c) => c.id == id);
+    if (index == -1) return;
+    
+    final existing = currentComments[index];
+    
+    // 2. Create updated comment entity
+    final updated = existing.copyWith(
       content: content,
       updatedAt: updatedAt,
       mentionedUserIds: mentionedUserIds,
+    );
+
+    // 3. Persist via repository
+    final repository = ref.read(commentRepositoryProvider);
+    await repository.updateComment(
+      id: updated.id,
+      content: updated.content,
+      updatedAt: updated.updatedAt!,
+      mentionedUserIds: updated.mentionedUserIds,
+    );
+    
+    // 4. Update UI immediately (Optimistic)
+    state = AsyncData(
+      currentComments.map((c) => c.id == id ? updated : c).toList()
     );
   }
 
   Future<void> deleteComment(String commentId) async {
     final repository = ref.read(commentRepositoryProvider);
     await repository.deleteComment(commentId);
+    
+    state = state.whenData(
+      (comments) => comments.where((c) => c.id != commentId).toList(),
+    );
   }
 }

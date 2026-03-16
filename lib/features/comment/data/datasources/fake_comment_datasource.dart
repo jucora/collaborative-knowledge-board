@@ -29,4 +29,14 @@ class FakeCommentDataSource implements CommentRemoteDataSource {
     await Future.delayed(const Duration(milliseconds: 300));
     database.comments.removeWhere((c) => c.id == commentId || c.parentId == commentId);
   }
+
+  @override
+  Future<void> updateComment(CommentModel comment) async{
+    await Future.delayed(const Duration(milliseconds: 300));
+    final index = database.comments.indexWhere((c) => c.id == comment.id);
+    if (index != -1) {
+      database.comments[index] = comment;
+    }
+    return Future.value();
+  }
 }

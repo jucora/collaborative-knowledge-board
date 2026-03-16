@@ -192,10 +192,27 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     });
   }
 
+  Future<void> editCard({
+    required String cardId,
+    required String title,
+    required String description,
+  }) async {
+    final currentCards = state.value;
+    if (currentCards == null) return;
+
+    final index = currentCards.indexWhere((c) => c.id == cardId);
+    if (index == -1) return;
+
+    final updatedCard = currentCards[index].copyWith(
+      title: title,
+      description: description,
+    );
+
+    await updateCard(updatedCard);
+  }
+
   Future<void> deleteCard(String cardId) async {
     final isOnline = ref.read(realTimeServiceProvider).isConnected;
-    
-    // 1. UI Update (Optimistic)
     _removeCardLocally(cardId);
 
     if (isOnline) {
@@ -203,12 +220,10 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
       final result = await useCase(cardId);
       
       result.fold(
-        (failure) => ref.invalidateSelf(), // Revert on failure
-        (_) => null, // Success
+        (failure) => ref.invalidateSelf(),
+        (_) => null,
       );
     } else {
-      // In offline mode, the sync service would handle it. 
-      // For now, let's keep it simple as we are mostly testing online.
       ref.read(syncServiceProvider).addAction('deleteCard', cardId);
     }
   }
