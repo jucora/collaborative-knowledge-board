@@ -62,9 +62,9 @@ class CommentNotifier extends FamilyAsyncNotifier<List<Comment>, String> {
     String? parentId,
     List<String> mentionedUserIds = const [],
   }) async {
-    final addComment = ref.read(addCommentUseCaseProvider);
+    final addCommentUseCase = ref.read(addCommentUseCaseProvider);
 
-    await addComment(
+    final result = await addCommentUseCase(
       id: id,
       cardId: cardId,
       authorId: authorId,
@@ -72,6 +72,15 @@ class CommentNotifier extends FamilyAsyncNotifier<List<Comment>, String> {
       createdAt: createdAt,
       parentId: parentId,
       mentionedUserIds: mentionedUserIds,
+    );
+
+    result.fold(
+      (failure) => null, // Handle error
+      (_) {
+        // Since Fake Data has no Real-time stream, we manually refresh the state
+        // This ensures the new comment appears in both Fake and Supabase modes.
+        ref.invalidateSelf();
+      },
     );
   }
 
@@ -81,7 +90,6 @@ class CommentNotifier extends FamilyAsyncNotifier<List<Comment>, String> {
     required DateTime updatedAt,
     List<String> mentionedUserIds = const [],
   }) async {
-    // 1. Get existing comment from state
     final currentComments = state.value;
     if (currentComments == null) return;
     
@@ -89,35 +97,33 @@ class CommentNotifier extends FamilyAsyncNotifier<List<Comment>, String> {
     if (index == -1) return;
     
     final existing = currentComments[index];
-    
-    // 2. Create updated comment entity
     final updated = existing.copyWith(
       content: content,
       updatedAt: updatedAt,
       mentionedUserIds: mentionedUserIds,
     );
 
-    // 3. Persist via repository
     final repository = ref.read(commentRepositoryProvider);
-    await repository.updateComment(
+    final result = await repository.updateComment(
       id: updated.id,
       content: updated.content,
       updatedAt: updated.updatedAt!,
       mentionedUserIds: updated.mentionedUserIds,
     );
     
-    // 4. Update UI immediately (Optimistic)
-    state = AsyncData(
-      currentComments.map((c) => c.id == id ? updated : c).toList()
+    result.fold(
+      (failure) => null,
+      (_) => ref.invalidateSelf(),
     );
   }
 
   Future<void> deleteComment(String commentId) async {
     final repository = ref.read(commentRepositoryProvider);
-    await repository.deleteComment(commentId);
+    final result = await repository.deleteComment(commentId);
     
-    state = state.whenData(
-      (comments) => comments.where((c) => c.id != commentId).toList(),
+    result.fold(
+      (failure) => null,
+      (_) => ref.invalidateSelf(),
     );
   }
 }

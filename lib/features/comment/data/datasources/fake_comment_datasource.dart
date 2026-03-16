@@ -31,12 +31,19 @@ class FakeCommentDataSource implements CommentRemoteDataSource {
   }
 
   @override
-  Future<void> updateComment(CommentModel comment) async{
-    await Future.delayed(const Duration(milliseconds: 300));
+  Future<void> updateComment(CommentModel comment) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    
     final index = database.comments.indexWhere((c) => c.id == comment.id);
     if (index != -1) {
-      database.comments[index] = comment;
+      final existing = database.comments[index];
+      
+      // FIX: Maintain original cardId and authorId to avoid losing the comment in filters
+      database.comments[index] = existing.copyWith(
+        content: comment.content,
+        updatedAt: comment.updatedAt,
+        mentionedUserIds: comment.mentionedUserIds,
+      );
     }
-    return Future.value();
   }
 }
