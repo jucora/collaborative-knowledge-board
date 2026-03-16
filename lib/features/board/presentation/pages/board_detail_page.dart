@@ -80,8 +80,6 @@ class BoardDetailPage extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             ...columns.map((column) => BoardColumnWidget(column: column)),
-                            // Shortcut to add column at the end
-                            _buildAddColumnButton(context, ref),
                           ],
                         ),
                       ),
@@ -130,26 +128,6 @@ class BoardDetailPage extends ConsumerWidget {
             child: const Text("Create"),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildAddColumnButton(BuildContext context, WidgetRef ref) {
-    return Container(
-      width: 280,
-      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: OutlinedButton.icon(
-        onPressed: () => _showAddColumnDialog(context, ref),
-        icon: const Icon(Icons.add),
-        label: const Text("Add another column"),
-        style: OutlinedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 20),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          side: BorderSide(
-            color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
-            style: BorderStyle.solid,
-          ),
-        ),
       ),
     );
   }
