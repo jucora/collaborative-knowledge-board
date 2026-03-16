@@ -1,20 +1,7 @@
-import '../../../../core/network/api_endpoints.dart';
-import '../../../../core/network/dio_client.dart';
 import '../models/card_item_model.dart';
 
-class CardRemoteDataSource {
-  final DioClient dioClient;
-
-  CardRemoteDataSource(this.dioClient);
-
-  Future<List<CardItemModel>> getCards(String columnId) async {
-    final response =
-    await dioClient.get(ApiEndpoints.cardsByColumn(columnId));
-
-    final List data = response.data;
-
-    return data.map((e) => CardItemModel.fromJson(e)).toList();
-  }
+abstract class CardRemoteDataSource {
+  Future<List<CardItemModel>> getCards(String columnId);
 
   Future<CardItemModel> createCard({
     required String id,
@@ -23,40 +10,10 @@ class CardRemoteDataSource {
     required String description,
     required int position,
     required String createdBy,
-    required DateTime? createdAt,
-  }) async {
-    final response = await dioClient.post(
-      ApiEndpoints.cardsByColumn(columnId),
-      data: {
-        'id': id,
-        'columnId': columnId,
-        'title': title,
-        'description': description,
-        'position': position,
-        'created_by': createdBy,
-        'created_at': createdAt,
-      },
-    );
+    required DateTime createdAt,
+  });
 
-    return CardItemModel.fromJson(response.data);
-  }
+  Future<CardItemModel> updateCard(CardItemModel card);
 
-  Future<CardItemModel> updateCard(CardItemModel card) async {
-    final response = await dioClient.put(
-      ApiEndpoints.cardById(card.id),
-      data: {
-        'title': card.title,
-        'description': card.description,
-        'position': card.position,
-        'created_by': card.createdBy,
-        'created_at': card.createdAt,
-      },
-    );
-
-    return CardItemModel.fromJson(response.data);
-  }
-
-  Future<void> deleteCard(String cardId) async {
-    await dioClient.delete(ApiEndpoints.cardById(cardId));
-  }
+  Future<void> deleteCard(String cardId);
 }

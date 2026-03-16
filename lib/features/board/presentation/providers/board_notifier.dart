@@ -3,44 +3,36 @@ import '../../domain/entities/board.dart';
 import 'board_usecase_provider.dart';
 
 class BoardNotifier extends AsyncNotifier<List<Board>> {
-
   @override
   Future<List<Board>> build() async {
-    final useCase = ref.read(getBoardsUseCaseProvider);
-
+    final useCase = ref.watch(getBoardsUseCaseProvider);
     final result = await useCase();
 
     return result.fold(
-          (failure) => throw failure,
-          (boards) => boards,
+      (failure) => throw Exception(failure.message),
+      (boards) => boards,
     );
   }
 
-  Future<void> refreshBoards() async {
-    state = const AsyncLoading();
-
-    final useCase = ref.read(getBoardsUseCaseProvider);
-
-    final result = await useCase();
-
-    state = result.fold(
-          (failure) => AsyncError(failure, StackTrace.current),
-          (boards) => AsyncData(boards),
-    );
-  }
-
-  Future<void> deleteBoard(String boardId) async {
-    final useCase = ref.read(deleteBoardUseCaseProvider);
-
-    final result = await useCase(boardId);
+  Future<void> createBoard({
+    required String title,
+    required String description,
+  }) async {
+    final useCase = ref.read(createBoardUseCaseProvider);
+    
+    // We can show a loading state if we want, or just wait for the result
+    final result = await useCase(title: title, description: description);
 
     result.fold(
-          (failure) => throw failure.message,
-          (_) {
-        state = state.whenData(
-              (boards) => boards.where((b) => b.id != boardId).toList(),
-        );
+      (failure) => null, // Handle error if needed
+      (newBoard) {
+        // Optimistic update or just refresh the list
+        ref.invalidateSelf();
       },
     );
   }
 }
+
+final boardNotifierProvider = AsyncNotifierProvider<BoardNotifier, List<Board>>(() {
+  return BoardNotifier();
+});

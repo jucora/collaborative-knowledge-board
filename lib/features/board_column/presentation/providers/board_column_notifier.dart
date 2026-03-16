@@ -39,7 +39,7 @@ class BoardColumnNotifier extends FamilyAsyncNotifier<List<BoardColumn>, String>
 
     final deleteBoardColumn = ref.read(deleteBoardColumnProvider);
 
-    final result = await deleteBoardColumn(boardId, columnId);
+    final result = await deleteBoardColumn(boardId);
 
     result.fold(
           (failure) {

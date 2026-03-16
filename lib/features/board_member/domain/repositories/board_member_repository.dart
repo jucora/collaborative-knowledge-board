@@ -3,17 +3,16 @@ import 'package:dartz/dartz.dart';
 import '../entities/board_member.dart';
 
 abstract class BoardMemberRepository {
-
   Future<Either<Failure, List<BoardMember>>> getBoardMembers(String boardId);
 
-  Future<void> addMemberToBoard({
-    required userId,
+  Future<Either<Failure, BoardMember>> addBoardMember({
     required String boardId,
+    required String userId,
     required String role,
     required DateTime joinedAt,
   });
 
-  Future<void> removeMemberFromBoard({
+  Future<Either<Failure, void>> removeBoardMember({
     required String boardId,
     required String userId,
   });

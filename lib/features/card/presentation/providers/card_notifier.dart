@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/services/real_time_service.dart';
 import '../../../../core/services/sync_service.dart';
 import '../../domain/entities/card_item.dart';
+import '../../data/models/card_item_model.dart';
 import 'card_repository_provider.dart';
 import 'card_usecase_provider.dart';
 
@@ -28,7 +29,7 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
 
     return result.fold(
           (failure) => throw Exception(failure.message),
-          (cards) => cards,
+          (cards) => cards.map((e) => CardItemModel.fromEntity(e)).toList(),
     );
   }
 
@@ -45,7 +46,8 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
       _previewIndex = newIndex;
       _previewCardId = draggedCard.id;
 
-      listWithoutDragged.insert(newIndex, draggedCard);
+      final cardToInsert = CardItemModel.fromEntity(draggedCard);
+      listWithoutDragged.insert(newIndex, cardToInsert);
       
       return listWithoutDragged;
     });
@@ -66,9 +68,6 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
 
     final card = event.data as CardItem;
     
-    // OFFLINE-FIRST: We ignore events for our own cards that are currently pending sync.
-    // This prevents the "jumping" effect where a local update is overwritten by 
-    // an older (or same) state from the server/repository before sync finishes.
     final syncService = ref.read(syncServiceProvider);
     final isPending = syncService.pendingActions.any(
       (a) => a.data is CardItem && (a.data as CardItem).id == card.id
@@ -98,13 +97,16 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
       final belongsToThisColumn = updatedCard.columnId == columnId;
       final existsLocally = cards.any((c) => c.id == updatedCard.id);
       
+      final cardModel = CardItemModel.fromEntity(updatedCard);
+
       if (belongsToThisColumn) {
         if (existsLocally) {
-          return cards.map((c) => c.id == updatedCard.id ? updatedCard : c).toList()
+          return cards.map((c) => c.id == updatedCard.id ? cardModel : c).toList()
             ..sort((a, b) => a.position.compareTo(b.position));
         } else {
-          return [...cards, updatedCard]
-            ..sort((a, b) => a.position.compareTo(b.position));
+          final List<CardItem> newList = [...cards, cardModel];
+          newList.sort((a, b) => a.position.compareTo(b.position));
+          return newList;
         }
       } else {
         if (existsLocally) {
@@ -132,7 +134,7 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     final isOnline = ref.read(realTimeServiceProvider).isConnected;
     final syncService = ref.read(syncServiceProvider);
 
-    final card = CardItem(
+    final card = CardItemModel(
       id: id,
       columnId: columnId,
       title: title,
@@ -170,14 +172,15 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
       final useCase = ref.read(updateCardUseCaseProvider);
       await useCase(card);
     } else {
-      syncService.addAction('updateCard', card);
+      syncService.addAction('updateCard', CardItemModel.fromEntity(card));
     }
   }
 
   void addCardLocally(CardItem card) {
     state = state.whenData((cards) {
       if (cards.any((c) => c.id == card.id)) return cards;
-      final newList = [...cards, card];
+      final cardModel = CardItemModel.fromEntity(card);
+      final List<CardItem> newList = [...cards, cardModel];
       newList.sort((a, b) => a.position.compareTo(b.position));
       return newList;
     });

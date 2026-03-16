@@ -11,7 +11,7 @@ class AddBoardMemberUseCase {
     required String role,
     required DateTime joinedAt,
   }) {
-    return repository.addMemberToBoard(
+    return repository.addBoardMember(
       userId: userId,
       boardId: boardId,
       role: role,
