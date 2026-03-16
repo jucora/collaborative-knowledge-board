@@ -21,7 +21,17 @@ class SupabaseCommentDataSourceImpl implements CommentRemoteDataSource {
   @override
   Future<CommentModel> addComment(CommentModel comment) async {
     final data = comment.toJson();
+    
+    // 1. Remove temp ID to let DB generate UUID
     data.remove('id');
+    
+    // 2. Validate parentId format. 
+    // If it's a numeric string (temp ID from Flutter), it will fail in Postgres as UUID.
+    // We only send it if it's a valid UUID.
+    final parentId = data['parent_id'] as String?;
+    if (parentId != null && RegExp(r'^\d+$').hasMatch(parentId)) {
+      data.remove('parent_id');
+    }
     
     final response = await _client
         .from('comments')
@@ -34,8 +44,6 @@ class SupabaseCommentDataSourceImpl implements CommentRemoteDataSource {
 
   @override
   Future<void> updateComment(CommentModel comment) async {
-    // Only send fields that are allowed to change to avoid UUID format errors
-    // with placeholder data (like empty strings for cardId/authorId)
     await _client
         .from('comments')
         .update({
