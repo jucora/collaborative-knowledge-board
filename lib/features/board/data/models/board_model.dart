@@ -17,15 +17,29 @@ class BoardModel extends Board {
     return BoardModel(
       id: json['id'] as String,
       title: json['title'] as String,
-      description: json['description'] as String,
+      description: json['description'] ?? '',
       createdAt: DateTime.parse(json['created_at'] as String),
       ownerId: json['owner_id'] as String,
-      columns: (json['columns'] as List<dynamic>)
-          .map((e) => BoardColumnModel.fromJson(e as Map<String, dynamic>))
-          .toList(),
-      members: (json['members'] as List<dynamic>)
-          .map((e) => UserModel.fromJson(e as Map<String, dynamic>))
-          .toList(),
+      columns: (json['columns'] as List<dynamic>?)
+              ?.map((e) => BoardColumnModel.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const [],
+      members: (json['members'] as List<dynamic>?)
+              ?.map((e) {
+                final userData = e['user'] as Map<String, dynamic>?;
+                if (userData != null) {
+                  return UserModel.fromJson(userData);
+                }
+                // Si viene de board_members directamente sin join
+                return UserModel(
+                  id: e['user_id'] ?? '',
+                  name: 'Member',
+                  email: '',
+                  createdAt: DateTime.now(),
+                );
+              })
+              .toList() ??
+          const [],
     );
   }
 
@@ -65,7 +79,7 @@ class BoardModel extends Board {
       createdAt: entity.createdAt,
       ownerId: entity.ownerId,
       columns: entity.columns,
-      members: entity.members,
+      members: entity.members.map((e) => UserModel.fromEntity(e)).toList(),
     );
   }
 }

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../core/widgets/common/theme_toggle_button.dart';
-import 'login_page.dart';
+import '../providers/auth_providers.dart';
 
 class RegisterPage extends ConsumerStatefulWidget {
   const RegisterPage({super.key});

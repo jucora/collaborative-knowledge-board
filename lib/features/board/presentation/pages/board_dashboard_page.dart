@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/widgets/common/theme_toggle_button.dart';
-import '../../../auth/presentation/pages/login_page.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/entities/board.dart';
 import '../providers/board_notifier.dart';
 

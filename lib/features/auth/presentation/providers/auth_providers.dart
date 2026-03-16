@@ -4,17 +4,22 @@ import '../../data/datasources/auth_remote_datasource.dart';
 import '../../data/datasources/supabase_auth_datasource_impl.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../data/repositories/fake_auth_repository_impl.dart';
+import '../../domain/entities/auth_session.dart';
 import '../../domain/repositories/auth_repository.dart';
 import '../../domain/usecases/login_usecase.dart';
 import '../../domain/usecases/register_usecase.dart';
+import 'auth_notifier.dart';
 
-/// 🔹 Datasource Provider
+/// Auth Notifier Provider (Moved from login_page.dart)
+final authNotifierProvider = AsyncNotifierProvider<AuthNotifier, AuthSession?>(
+  AuthNotifier.new,
+);
+
+/// Datasource Provider
 final authRemoteDataSourceProvider = Provider<AuthRemoteDataSource>((ref) {
-  // Aquí usamos la implementación de Supabase
   return SupabaseAuthDataSourceImpl();
 });
 
-/// Control flag to toggle between Fake and Real Implementation
 const useFake = false;
 
 /// Auth Repository Provider
@@ -27,7 +32,6 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
     );
   }
 
-  // Implementación Real con Supabase
   final remoteDataSource = ref.read(authRemoteDataSourceProvider);
   return AuthRepositoryImpl(
     remoteDataSource: remoteDataSource,
@@ -35,13 +39,11 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   );
 });
 
-/// Login UseCase Provider
 final loginUseCaseProvider = Provider<LoginUseCase>((ref) {
   final repository = ref.read(authRepositoryProvider);
   return LoginUseCase(repository);
 });
 
-/// Register UseCase Provider
 final registerUseCaseProvider = Provider<RegisterUseCase>((ref) {
   final repository = ref.read(authRepositoryProvider);
   return RegisterUseCase(repository);

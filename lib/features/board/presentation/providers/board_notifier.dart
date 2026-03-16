@@ -1,10 +1,16 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
 import '../../domain/entities/board.dart';
 import 'board_usecase_provider.dart';
 
 class BoardNotifier extends AsyncNotifier<List<Board>> {
   @override
   Future<List<Board>> build() async {
+    // 🔹 IMPORTANTE: Escuchamos el estado de autenticación.
+    // Si el usuario cambia (Login/Logout), este provider se invalidará 
+    // automáticamente y volverá a pedir los datos del servidor.
+    ref.watch(authNotifierProvider);
+
     final useCase = ref.watch(getBoardsUseCaseProvider);
     final result = await useCase();
 
@@ -20,13 +26,11 @@ class BoardNotifier extends AsyncNotifier<List<Board>> {
   }) async {
     final useCase = ref.read(createBoardUseCaseProvider);
     
-    // We can show a loading state if we want, or just wait for the result
     final result = await useCase(title: title, description: description);
 
     result.fold(
-      (failure) => null, // Handle error if needed
+      (failure) => null,
       (newBoard) {
-        // Optimistic update or just refresh the list
         ref.invalidateSelf();
       },
     );

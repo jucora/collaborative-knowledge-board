@@ -3,13 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../core/widgets/common/theme_toggle_button.dart';
-import '../../domain/entities/auth_session.dart';
-import '../providers/auth_notifier.dart';
-
-final authNotifierProvider =
-AsyncNotifierProvider<AuthNotifier, AuthSession?>(
-  AuthNotifier.new,
-);
+import '../providers/auth_providers.dart';
 
 class LoginPage extends ConsumerStatefulWidget {
   const LoginPage({super.key});
