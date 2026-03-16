@@ -8,9 +8,8 @@ class DeleteBoardColumnUseCase {
   DeleteBoardColumnUseCase(this.repository);
 
   Future<Either<Failure, void>> call(
-      String boardId,
       String columnId,
       ) {
-    return repository.deleteBoardColumn(boardId, columnId);
+    return repository.deleteBoardColumn(columnId);
   }
 }

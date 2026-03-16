@@ -14,8 +14,8 @@ class BoardRepositoryImpl implements BoardRepository {
   Future<Either<Failure, List<Board>>> getBoards() async {
     try {
       final models = await remoteDataSource.getBoards();
-      return Right(models.map((e) => e.toEntity()).toList());
-    } on Exception catch (e) {
+      return Right(models);
+    } catch (e) {
       return Left(ExceptionHandler.handle(e));
     }
   }
@@ -30,8 +30,8 @@ class BoardRepositoryImpl implements BoardRepository {
         title: title,
         description: description,
       );
-      return Right(model.toEntity());
-    } on Exception catch (e) {
+      return Right(model);
+    } catch (e) {
       return Left(ExceptionHandler.handle(e));
     }
   }
@@ -41,7 +41,7 @@ class BoardRepositoryImpl implements BoardRepository {
     try {
       await remoteDataSource.deleteBoard(id);
       return const Right(null);
-    } on Exception catch (e) {
+    } catch (e) {
       return Left(ExceptionHandler.handle(e));
     }
   }

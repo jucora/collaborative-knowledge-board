@@ -6,6 +6,6 @@ class DeleteBoardMemberUseCase {
   DeleteBoardMemberUseCase(this.repository);
 
   Future<void> call(String boardId, String userId) {
-    return repository.removeMemberFromBoard(boardId: boardId, userId: userId);
+    return repository.removeBoardMember(boardId: boardId, userId: userId);
   }
 }

@@ -7,7 +7,7 @@ import 'board_member_repository_provider.dart';
 final getBoardMembersUseCaseProvider =
 Provider<GetBoardMembersUseCase>((ref) {
 
-  final repository = ref.read(boardMembersRepositoryProvider);
+  final repository = ref.read(boardMemberRepositoryProvider);
 
   return GetBoardMembersUseCase(repository);
 
@@ -15,12 +15,12 @@ Provider<GetBoardMembersUseCase>((ref) {
 
 final addBoardMemberUseCaseProvider =
     Provider <AddBoardMemberUseCase>((ref) {
-      final repository = ref.read(boardMembersRepositoryProvider);
+      final repository = ref.read(boardMemberRepositoryProvider);
     return AddBoardMemberUseCase(repository);
 });
 
 final deleteBoardMemberUseCaseProvider =
     Provider <DeleteBoardMemberUseCase>((ref) {
-      final repository = ref.read(boardMembersRepositoryProvider);
+      final repository = ref.read(boardMemberRepositoryProvider);
     return DeleteBoardMemberUseCase(repository);
 });

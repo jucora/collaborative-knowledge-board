@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/services/real_time_service.dart';
 import '../../../../core/services/sync_service.dart';
 import '../../domain/entities/card_item.dart';
+import '../../data/models/card_item_model.dart';
 import 'card_repository_provider.dart';
 import 'card_usecase_provider.dart';
 
@@ -14,6 +15,9 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
 
   String? _previewCardId;
   int? _previewIndex;
+  
+  // Track IDs of cards updated locally to avoid UI jumps during sync
+  final Set<String> _locallyUpdatedIds = {};
 
   @override
   Future<List<CardItem>> build(String arg) async {
@@ -28,16 +32,13 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
 
     return result.fold(
           (failure) => throw Exception(failure.message),
-          (cards) => cards,
+          (cards) => cards.map((e) => CardItemModel.fromEntity(e)).toList(),
     );
   }
 
-  /// Updates the list visual order during an active drag.
-  /// Uses round() to allow "snapping" when the pointer crosses the middle of an item.
   void updatePreview(CardItem draggedCard, double localY, double itemHeight) {
     state = state.whenData((cards) {
       final List<CardItem> listWithoutDragged = cards.where((c) => c.id != draggedCard.id).toList();
-      
       int newIndex = (localY / itemHeight).round().clamp(0, listWithoutDragged.length);
       
       if (_previewIndex == newIndex && _previewCardId == draggedCard.id) return cards;
@@ -45,7 +46,8 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
       _previewIndex = newIndex;
       _previewCardId = draggedCard.id;
 
-      listWithoutDragged.insert(newIndex, draggedCard);
+      final cardToInsert = CardItemModel.fromEntity(draggedCard);
+      listWithoutDragged.insert(newIndex, cardToInsert);
       
       return listWithoutDragged;
     });
@@ -60,15 +62,15 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
 
   void _handleRealTimeEvent(RealTimeEvent event) {
     if (event.data == null) {
-      ref.invalidateSelf();
+      if (_locallyUpdatedIds.isEmpty) {
+        ref.invalidateSelf();
+      }
       return;
     }
 
     final card = event.data as CardItem;
-    
-    // OFFLINE-FIRST: We ignore events for our own cards that are currently pending sync.
-    // This prevents the "jumping" effect where a local update is overwritten by 
-    // an older (or same) state from the server/repository before sync finishes.
+    if (_locallyUpdatedIds.contains(card.id)) return;
+
     final syncService = ref.read(syncServiceProvider);
     final isPending = syncService.pendingActions.any(
       (a) => a.data is CardItem && (a.data as CardItem).id == card.id
@@ -98,13 +100,14 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
       final belongsToThisColumn = updatedCard.columnId == columnId;
       final existsLocally = cards.any((c) => c.id == updatedCard.id);
       
+      final cardModel = CardItemModel.fromEntity(updatedCard);
+
       if (belongsToThisColumn) {
         if (existsLocally) {
-          return cards.map((c) => c.id == updatedCard.id ? updatedCard : c).toList()
+          return cards.map((c) => c.id == updatedCard.id ? cardModel : c).toList()
             ..sort((a, b) => a.position.compareTo(b.position));
         } else {
-          return [...cards, updatedCard]
-            ..sort((a, b) => a.position.compareTo(b.position));
+          return _addOrMergeCard(cards, cardModel);
         }
       } else {
         if (existsLocally) {
@@ -132,7 +135,7 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     final isOnline = ref.read(realTimeServiceProvider).isConnected;
     final syncService = ref.read(syncServiceProvider);
 
-    final card = CardItem(
+    final card = CardItemModel(
       id: id,
       columnId: columnId,
       title: title,
@@ -146,7 +149,7 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
 
     if (isOnline) {
       final useCase = ref.read(createCardUseCaseProvider);
-      await useCase(
+      final result = await useCase(
         id: id,
         columnId: columnId,
         title: title,
@@ -154,6 +157,16 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
         position: position,
         createdBy: createdBy,
         createdAt: createdAt,
+      );
+      
+      result.fold(
+        (failure) => _removeCardLocally(id),
+        (realCard) {
+          state = state.whenData((cards) {
+            final List<CardItem> newList = cards.map((c) => c.id == id ? CardItemModel.fromEntity(realCard) : c).toList();
+            return newList;
+          });
+        }
       );
     } else {
       syncService.addAction('createCard', card);
@@ -164,23 +177,80 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     final isOnline = ref.read(realTimeServiceProvider).isConnected;
     final syncService = ref.read(syncServiceProvider);
 
+    _locallyUpdatedIds.add(card.id);
     _updateCardLocally(card);
 
     if (isOnline) {
       final useCase = ref.read(updateCardUseCaseProvider);
       await useCase(card);
     } else {
-      syncService.addAction('updateCard', card);
+      syncService.addAction('updateCard', CardItemModel.fromEntity(card));
+    }
+    
+    Future.delayed(const Duration(milliseconds: 1000), () {
+      _locallyUpdatedIds.remove(card.id);
+    });
+  }
+
+  Future<void> editCard({
+    required String cardId,
+    required String title,
+    required String description,
+  }) async {
+    final currentCards = state.value;
+    if (currentCards == null) return;
+
+    final index = currentCards.indexWhere((c) => c.id == cardId);
+    if (index == -1) return;
+
+    final updatedCard = currentCards[index].copyWith(
+      title: title,
+      description: description,
+    );
+
+    await updateCard(updatedCard);
+  }
+
+  Future<void> deleteCard(String cardId) async {
+    final isOnline = ref.read(realTimeServiceProvider).isConnected;
+    _removeCardLocally(cardId);
+
+    if (isOnline) {
+      final useCase = ref.read(deleteCardUseCaseProvider);
+      final result = await useCase(cardId);
+      
+      result.fold(
+        (failure) => ref.invalidateSelf(),
+        (_) => null,
+      );
+    } else {
+      ref.read(syncServiceProvider).addAction('deleteCard', cardId);
     }
   }
 
   void addCardLocally(CardItem card) {
     state = state.whenData((cards) {
       if (cards.any((c) => c.id == card.id)) return cards;
-      final newList = [...cards, card];
-      newList.sort((a, b) => a.position.compareTo(b.position));
-      return newList;
+      return _addOrMergeCard(cards, CardItemModel.fromEntity(card));
     });
+  }
+
+  List<CardItem> _addOrMergeCard(List<CardItem> cards, CardItemModel newCard) {
+    final optimisticIndex = cards.indexWhere((c) => 
+      c.title == newCard.title && 
+      c.position == newCard.position && 
+      RegExp(r'^\d+$').hasMatch(c.id)
+    );
+
+    if (optimisticIndex != -1) {
+      final List<CardItem> newList = List.from(cards);
+      newList[optimisticIndex] = newCard;
+      return newList;
+    }
+
+    final List<CardItem> newList = [...cards, newCard];
+    newList.sort((a, b) => a.position.compareTo(b.position));
+    return newList;
   }
 
   Future<void> reorderCards(int oldIndex, int newIndex) async {

@@ -1,28 +1,47 @@
-import 'package:collaborative_knowledge_board/core/fake_data/fake_database.dart';
-import '../../domain/entities/board_member.dart';
+import '../../../../core/fake_data/fake_database.dart';
+import '../models/board_member_model.dart';
+import 'board_member_remote_datasource.dart';
 
-class FakeBoardMemberDatasource {
-
-  final FakeDatabase database;
+class FakeBoardMemberDatasource implements BoardMemberRemoteDataSource {
+  final FakeDatabase? database;
 
   FakeBoardMemberDatasource(this.database);
 
-  Future<List<BoardMember>> getBoardMembers(String boardId) async {
-    final members = database.members
+  @override
+  Future<List<BoardMemberModel>> getBoardMembers(String boardId) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    final members = database?.members
         .where((m) => m.boardId == boardId)
-        .toList();
-    return members;
+        .toList() ?? [];
+    
+    return members.map((e) => BoardMemberModel.fromEntity(e)).toList();
   }
 
-  // Add member to board
-
-  Future<void> addMemberToBoard(BoardMember member) async {
-    database.members.add(member);
+  @override
+  Future<BoardMemberModel> addBoardMember({
+    required String boardId,
+    required String userId,
+    required String role,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    final newMember = BoardMemberModel(
+      boardId: boardId,
+      userId: userId,
+      role: role,
+      joinedAt: DateTime.now(),
+    );
+    database?.members.add(newMember);
+    return newMember;
   }
 
-  // Remove member from board
-  Future<void> removeMemberFromBoard(String boardId, String userId) async {
-    database.members.removeWhere((m) =>
-    m.boardId == boardId && m.userId == userId);
+  @override
+  Future<void> removeBoardMember({
+    required String boardId,
+    required String userId,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 300));
+    database?.members.removeWhere(
+      (m) => m.boardId == boardId && m.userId == userId,
+    );
   }
 }

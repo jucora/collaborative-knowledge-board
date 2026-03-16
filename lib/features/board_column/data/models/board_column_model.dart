@@ -50,7 +50,8 @@ class BoardColumnModel extends BoardColumn {
       boardId: entity.boardId,
       title: entity.title,
       position: entity.position,
-      cards: entity.cards,
+      // FIX: Ensure all cards are converted to CardItemModel to avoid TypeErrors in the UI
+      cards: entity.cards.map((c) => CardItemModel.fromEntity(c)).toList(),
     );
   }
 }

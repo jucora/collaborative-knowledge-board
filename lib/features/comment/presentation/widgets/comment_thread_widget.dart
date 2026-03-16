@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/providers/config_provider.dart';
 import '../../domain/entities/comment.dart';
 import '../providers/comment_notifier_provider.dart';
 
@@ -145,10 +147,16 @@ class _CommentItem extends ConsumerWidget {
           TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
           ElevatedButton(
             onPressed: () {
+              // FIX: Determine correct authorId (UUID for Supabase, String for Fake)
+              String authorId = 'FakeUserId';
+              if (!useFakeData) {
+                authorId = Supabase.instance.client.auth.currentUser?.id ?? 'anonymous';
+              }
+
               ref.read(commentNotifierProvider(cardId).notifier).createComment(
                 id: DateTime.now().millisecondsSinceEpoch.toString(),
                 cardId: cardId,
-                authorId: "You",
+                authorId: authorId,
                 content: controller.text,
                 createdAt: DateTime.now(),
                 parentId: comment.id,

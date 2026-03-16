@@ -1,39 +1,49 @@
 import '../../../../core/fake_data/fake_database.dart';
-import '../../domain/entities/comment.dart';
+import '../models/comment_model.dart';
+import 'comment_remote_datasource.dart';
 
-class FakeCommentDataSource {
+class FakeCommentDataSource implements CommentRemoteDataSource {
   final FakeDatabase database;
 
   FakeCommentDataSource(this.database);
 
-  Future<List<Comment>> getCommentsByCard(String cardId) async {
+  @override
+  Future<List<CommentModel>> getComments(String cardId) async {
     await Future.delayed(const Duration(milliseconds: 200));
-    return database.comments
+    final comments = database.comments
         .where((c) => c.cardId == cardId)
         .toList();
+    
+    return comments.map((e) => CommentModel.fromEntity(e)).toList();
   }
 
-  Future<void> addComment(Comment comment) async {
+  @override
+  Future<CommentModel> addComment(CommentModel comment) async {
+    await Future.delayed(const Duration(milliseconds: 300));
     database.comments.add(comment);
+    return comment is CommentModel ? comment : CommentModel.fromEntity(comment);
   }
 
-  Future<void> updateComment(Comment comment) async {
-    final index = database.comments.indexWhere((c) => c.id == comment.id);
-    if (index != -1) {
-      database.comments[index] = comment;
-    } else {
-      throw Exception('Comment not found');
-    }
-  }
-
+  @override
   Future<void> deleteComment(String commentId) async {
-    // To maintain scalability and referential integrity in a real DB, 
-    // we might do a soft delete or handle children. 
-    // For this fake, we remove the comment and its direct replies.
+    await Future.delayed(const Duration(milliseconds: 300));
     database.comments.removeWhere((c) => c.id == commentId || c.parentId == commentId);
   }
 
-  Future<void> addComments(List<Comment> comments) async {
-    database.comments.addAll(comments);
+  @override
+  Future<void> updateComment(CommentModel comment) async {
+    await Future.delayed(const Duration(milliseconds: 200));
+    
+    final index = database.comments.indexWhere((c) => c.id == comment.id);
+    if (index != -1) {
+      final existing = database.comments[index];
+      
+      // FIX: Maintain original cardId and authorId to avoid losing the comment in filters
+      database.comments[index] = existing.copyWith(
+        content: comment.content,
+        updatedAt: comment.updatedAt,
+        mentionedUserIds: comment.mentionedUserIds,
+      );
+    }
   }
 }

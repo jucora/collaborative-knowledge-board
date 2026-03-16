@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../../../core/providers/config_provider.dart'; // Importamos la config global
 import '../../../comment/domain/entities/comment.dart';
 import '../providers/card_notifier_provider.dart';
 
@@ -122,12 +124,18 @@ class _CreateCardDialogState
   void _addComment() {
     final text = _commentController.text.trim();
     if (text.isEmpty) return;
+    
+    String author = 'Fake User';
+    if (!useFakeData) {
+      author = Supabase.instance.client.auth.currentUser?.email ?? 'anonymous';
+    }
+
     final newComment = Comment(
-      id: UniqueKey().toString(),
+      id: DateTime.now().millisecondsSinceEpoch.toString(),
       content: text,
       createdAt: DateTime.now(),
       cardId: widget.columnId,
-      authorId: 'currentUserId',
+      authorId: author,
     );
     setState(() {
       _comments.add(newComment);
@@ -153,21 +161,30 @@ class _CreateCardDialogState
     setState(() => _isSubmitting = true);
 
     try {
-      // FIX: Get the current number of cards to set the position to the end
+      String creator = 'Dev User';
+      if (!useFakeData) {
+        final user = Supabase.instance.client.auth.currentUser;
+        creator = user?.email ?? 'Anonymous';
+      }
+      
       final currentCards = ref.read(cardNotifierProvider(widget.columnId)).value ?? [];
       
       await ref.read(cardNotifierProvider(widget.columnId).notifier).createCard(
-        id: UniqueKey().toString(),
+        id: DateTime.now().millisecondsSinceEpoch.toString(), 
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
-        position: currentCards.length, // Set to the end
-        createdBy: 'User',
+        position: currentCards.length,
+        createdBy: creator,
         createdAt: _createdAt,
       );
 
       if (mounted) Navigator.pop(context);
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'))
+        );
+      }
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }

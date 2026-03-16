@@ -9,7 +9,7 @@ import '../../domain/entities/comment.dart';
 /// Notifier responsible for managing comments for a specific card.
 class CommentNotifier extends FamilyAsyncNotifier<List<Comment>, String> {
 
-  late final GetCommentsUseCase getCommentsUseCase;
+  late GetCommentsUseCase getCommentsUseCase;
   StreamSubscription? _subscription;
   late String cardId;
 
@@ -62,9 +62,9 @@ class CommentNotifier extends FamilyAsyncNotifier<List<Comment>, String> {
     String? parentId,
     List<String> mentionedUserIds = const [],
   }) async {
-    final addComment = ref.read(addCommentUseCaseProvider);
+    final addCommentUseCase = ref.read(addCommentUseCaseProvider);
 
-    await addComment(
+    final result = await addCommentUseCase(
       id: id,
       cardId: cardId,
       authorId: authorId,
@@ -72,6 +72,15 @@ class CommentNotifier extends FamilyAsyncNotifier<List<Comment>, String> {
       createdAt: createdAt,
       parentId: parentId,
       mentionedUserIds: mentionedUserIds,
+    );
+
+    result.fold(
+      (failure) => null, // Handle error
+      (_) {
+        // Since Fake Data has no Real-time stream, we manually refresh the state
+        // This ensures the new comment appears in both Fake and Supabase modes.
+        ref.invalidateSelf();
+      },
     );
   }
 
@@ -81,17 +90,40 @@ class CommentNotifier extends FamilyAsyncNotifier<List<Comment>, String> {
     required DateTime updatedAt,
     List<String> mentionedUserIds = const [],
   }) async {
-    final repository = ref.read(commentRepositoryProvider);
-    await repository.updateComment(
-      id: id,
+    final currentComments = state.value;
+    if (currentComments == null) return;
+    
+    final index = currentComments.indexWhere((c) => c.id == id);
+    if (index == -1) return;
+    
+    final existing = currentComments[index];
+    final updated = existing.copyWith(
       content: content,
       updatedAt: updatedAt,
       mentionedUserIds: mentionedUserIds,
+    );
+
+    final repository = ref.read(commentRepositoryProvider);
+    final result = await repository.updateComment(
+      id: updated.id,
+      content: updated.content,
+      updatedAt: updated.updatedAt!,
+      mentionedUserIds: updated.mentionedUserIds,
+    );
+    
+    result.fold(
+      (failure) => null,
+      (_) => ref.invalidateSelf(),
     );
   }
 
   Future<void> deleteComment(String commentId) async {
     final repository = ref.read(commentRepositoryProvider);
-    await repository.deleteComment(commentId);
+    final result = await repository.deleteComment(commentId);
+    
+    result.fold(
+      (failure) => null,
+      (_) => ref.invalidateSelf(),
+    );
   }
 }
