@@ -2,9 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../../../core/providers/theme_provider.dart';
 import '../../../../core/widgets/common/error_retry_widget.dart';
 import '../../../../core/widgets/common/skeleton_loader.dart';
+import '../../../../core/widgets/common/theme_toggle_button.dart';
 import '../../../../core/widgets/real_time_simulator_panel.dart';
 import '../../../board_column/presentation/providers/board_column_notifier.dart';
 import '../../../board_column/presentation/widgets/board_column_widget.dart';
@@ -21,7 +21,6 @@ class BoardDetailPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final boardColumnsAsync = ref.watch(boardColumnNotifierProvider(boardId));
-    final themeMode = ref.watch(themeProvider);
 
     const showSimulator = bool.fromEnvironment('SHOW_SIMULATOR', defaultValue: false);
     final canShowSimulator = showSimulator && !kReleaseMode;
@@ -40,11 +39,8 @@ class BoardDetailPage extends ConsumerWidget {
             onPressed: () => _showAddColumnDialog(context, ref),
             tooltip: "Add Column",
           ),
-          IconButton(
-            icon: Icon(themeMode == ThemeMode.light ? Icons.dark_mode : Icons.light_mode),
-            onPressed: () => ref.read(themeProvider.notifier).toggleTheme(),
-            tooltip: "Toggle Dark/Light Mode",
-          ),
+          const ThemeToggleButton(),
+          const SizedBox(width: 8),
         ],
       ),
       body: Stack(
