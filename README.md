@@ -1,6 +1,6 @@
 # Collaborative Knowledge Board
 
-A modern, high-performance task management application built with Flutter, designed for seamless team collaboration. This project implements a sophisticated **Offline-First** architecture with real-time synchronization capabilities.
+A modern, high-performance task management application built with Flutter, designed for seamless team collaboration. This project implements a sophisticated **Offline-First (Local-First)** architecture with real-time synchronization capabilities.
 
 ---
 ### 👨‍💻 Author
@@ -30,18 +30,33 @@ The project follows **Clean Architecture** principles, ensuring scalability, mai
 *   **Dependency Injection:** Handled natively via Riverpod Providers.
 *   **Styling:** Custom Material 3 themes with a vibrant, modern color palette.
 
-## 📡 Synchronization Logic
+## 📡 Local-First Strategy & Synchronization
 
-The application implements a custom `SyncService` that acts as a middleware between the UI and the Data Layer:
-1.  **Local-First Update:** The UI updates immediately using Riverpod Notifiers.
-2.  **Connectivity Check:** If online, the data is persisted via the Repository.
-3.  **Action Queue:** If offline, the action is stored in a `pendingActions` queue.
-4.  **Reconciliation:** When connectivity is restored, the service automatically synchronizes all pending changes to the server/datasource.
+The core of this application is a **Local-First** data approach combined with a dual-datasource strategy. This ensures a zero-latency user experience and full offline functionality.
+
+### 1. Hybrid Datasource Architecture
+The application leverages a flexible abstraction layer for data access:
+- **Supabase Production Source:** Handles persistent remote storage, real-time subscriptions (PostgreSQL CDC), and authentication.
+- **In-Memory/Fake Datasource:** Used for rapid prototyping, automated testing, and as a fallback mechanism. This allows developers to test complex synchronization edge cases (like race conditions or conflict resolution) in a controlled environment.
+
+### 2. Synchronization Engine (`SyncService`)
+Instead of blocking the UI waiting for server responses, the system operates as follows:
+1.  **Optimistic UI Update:** When a user performs an action (e.g., moving a card), the Riverpod state is updated immediately.
+2.  **Connectivity-Aware Persistence:**
+    - **Online:** The action is forwarded to the `RemoteDatasource` (Supabase).
+    - **Offline:** The action is serialized and pushed into a `PersistentActionQueue`.
+3.  **Automatic Reconciliation:** The `SyncService` monitors connectivity changes. Upon reconnection, it executes a "replay" of the pending queue, ensuring the local state and remote database are eventually consistent.
+
+### 3. Real-Time Integration
+Using Supabase's real-time capabilities, the app listens for changes made by other collaborators. The `Local-First` logic is smart enough to distinguish between local optimistic updates and incoming remote changes to prevent unnecessary UI flickers.
 
 ## 🛠️ Development Tools
 
 ### Real-Time Simulator
-To facilitate testing without a live backend, the app includes a **Real-Time Simulator Panel**. For security and performance, this panel is excluded from production builds.
+To facilitate testing without a live backend or to stress-test the sync logic, the app includes a **Real-Time Simulator Panel**. This tool allows:
+- Toggling network status (Online/Offline).
+- Injecting "external" data changes to verify real-time UI updates.
+- Monitoring the status of the synchronization queue.
 
 **To run the app with the simulator enabled:**
 
@@ -67,4 +82,4 @@ flutter run --dart-define=SHOW_SIMULATOR=true
     ```
 
 ---
-*Collaborative Knowledge Board - 2024*
+*Collaborative Knowledge Board - 2026*
