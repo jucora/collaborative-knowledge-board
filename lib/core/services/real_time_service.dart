@@ -4,12 +4,21 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// Defines the types of events that can happen in real-time.
 enum RealTimeEventType {
+  boardCreated,
+  boardUpdated,
+  boardDeleted,
+  columnCreated,
+  columnUpdated,
+  columnDeleted,
   cardCreated,
   cardUpdated,
   cardDeleted,
   commentCreated,
   commentUpdated,
   commentDeleted,
+  memberAdded,
+  memberUpdated,
+  memberRemoved,
 }
 
 /// Represents a single real-time event carrying a type and the associated data.

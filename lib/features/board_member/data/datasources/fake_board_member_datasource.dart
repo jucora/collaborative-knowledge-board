@@ -22,6 +22,7 @@ class FakeBoardMemberDatasource implements BoardMemberRemoteDataSource {
     required String boardId,
     required String userId,
     required String role,
+    required DateTime joinedAt,
   }) async {
     await Future.delayed(const Duration(milliseconds: 300));
     final newMember = BoardMemberModel(

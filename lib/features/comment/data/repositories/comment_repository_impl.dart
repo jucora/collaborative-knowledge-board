@@ -1,8 +1,9 @@
+import 'dart:async';
 import 'package:dartz/dartz.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:rxdart/rxdart.dart';
 import '../../../../core/error/exception_handler.dart';
 import '../../../../core/error/failures.dart';
-import '../../../../core/providers/config_provider.dart';
 import '../../../../core/services/real_time_service.dart';
 import '../../domain/entities/comment.dart';
 import '../../domain/repositories/comment_repository.dart';
@@ -10,16 +11,29 @@ import '../datasources/comment_remote_datasource.dart';
 import '../models/comment_model.dart';
 
 class CommentRepositoryImpl implements CommentRepository {
-  final CommentRemoteDataSource remoteDataSource;
+  final CommentRemoteDataSource remoteDataSource; // Supabase
+  final CommentRemoteDataSource localCacheSource; // FakeDB (Cache)
   final SupabaseClient _supabase = Supabase.instance.client;
+  final RealTimeService _simulatorService;
 
-  CommentRepositoryImpl(this.remoteDataSource);
+  CommentRepositoryImpl({
+    required this.remoteDataSource,
+    required this.localCacheSource,
+    required RealTimeService simulatorService,
+  }) : _simulatorService = simulatorService;
 
   @override
   Future<Either<Failure, List<Comment>>> getCommentsByCard(String cardId) async {
     try {
-      final models = await remoteDataSource.getComments(cardId);
-      return Right(models);
+      try {
+        final remoteComments = await remoteDataSource.getComments(cardId);
+        for (var comment in remoteComments) {
+          await localCacheSource.updateComment(comment);
+        }
+      } catch (_) {}
+
+      final localComments = await localCacheSource.getComments(cardId);
+      return Right(localComments);
     } catch (e) {
       return Left(ExceptionHandler.handle(e));
     }
@@ -35,17 +49,21 @@ class CommentRepositoryImpl implements CommentRepository {
     String? parentId,
     List<String> mentionedUserIds = const [],
   }) async {
+    final comment = CommentModel(
+      id: id,
+      cardId: cardId,
+      authorId: authorId,
+      content: content,
+      createdAt: createdAt,
+      parentId: parentId,
+      mentionedUserIds: mentionedUserIds,
+    );
+
     try {
-      final comment = CommentModel(
-        id: id,
-        cardId: cardId,
-        authorId: authorId,
-        content: content,
-        createdAt: createdAt,
-        parentId: parentId,
-        mentionedUserIds: mentionedUserIds,
-      );
-      await remoteDataSource.addComment(comment);
+      await localCacheSource.addComment(comment);
+      try {
+        await remoteDataSource.addComment(comment);
+      } catch (_) {}
       return const Right(null);
     } catch (e) {
       return Left(ExceptionHandler.handle(e));
@@ -59,37 +77,21 @@ class CommentRepositoryImpl implements CommentRepository {
     required DateTime updatedAt,
     List<String> mentionedUserIds = const [],
   }) async {
-    try {
-      // 1. We need to fetch the full comment model first or assume fields 
-      // based on what's provided. For a cleaner approach, we use a partial update model.
-      
-      // Since our interface expects CommentModel, we'll create a "fake" full model 
-      // representing the update. Note: In a real app, updateComment might 
-      // take a Comment entity instead.
-      
-      final currentCommentsResult = await getCommentsByCard(""); // dummy or handle differently
-      // A better way is to just call update on the datasource with what we have.
-      
-      // Let's implement this properly:
-      // We need to pass enough info to identify the record.
-      // Assuming existing fields don't change except for updatedAt and content.
-      
-      // Temporary workaround since we don't have the original cardId/authorId here:
-      // We'll update the DataSource interface if needed, or create a mock model.
-      
-      // Actually, let's just make the repository pass the update.
-      // We'll use a placeholder for required fields that won't be updated.
-      final partialUpdate = CommentModel(
-        id: id,
-        cardId: "", // Not used in UPDATE eq filter
-        authorId: "", // Not used in UPDATE eq filter
-        content: content,
-        createdAt: DateTime.now(), // Placeholder
-        updatedAt: updatedAt,
-        mentionedUserIds: mentionedUserIds,
-      );
+    final partialUpdate = CommentModel(
+      id: id,
+      cardId: "", 
+      authorId: "", 
+      content: content,
+      createdAt: DateTime.now(), 
+      updatedAt: updatedAt,
+      mentionedUserIds: mentionedUserIds,
+    );
 
-      await remoteDataSource.updateComment(partialUpdate);
+    try {
+      await localCacheSource.updateComment(partialUpdate);
+      try {
+        await remoteDataSource.updateComment(partialUpdate);
+      } catch (_) {}
       return const Right(null);
     } catch (e) {
       return Left(ExceptionHandler.handle(e));
@@ -99,7 +101,10 @@ class CommentRepositoryImpl implements CommentRepository {
   @override
   Future<Either<Failure, void>> deleteComment(String commentId) async {
     try {
-      await remoteDataSource.deleteComment(commentId);
+      await localCacheSource.deleteComment(commentId);
+      try {
+        await remoteDataSource.deleteComment(commentId);
+      } catch (_) {}
       return const Right(null);
     } catch (e) {
       return Left(ExceptionHandler.handle(e));
@@ -108,11 +113,52 @@ class CommentRepositoryImpl implements CommentRepository {
 
   @override
   Stream<RealTimeEvent> watchComments() {
-    if (useFakeData) return const Stream.empty();
+    final simulatorStream = _simulatorService.eventStream;
 
-    return _supabase
-        .from('comments')
-        .stream(primaryKey: ['id'])
-        .map((_) => RealTimeEvent(RealTimeEventType.commentUpdated, null));
+    final controller = StreamController<RealTimeEvent>();
+    final channel = _supabase.channel('public:comments');
+
+    channel.onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'comments',
+      callback: (payload) {
+        final eventType = payload.eventType;
+        RealTimeEventType type;
+        Map<String, dynamic>? data;
+
+        if (eventType == PostgresChangeEvent.insert) {
+          type = RealTimeEventType.commentCreated;
+          data = payload.newRecord;
+        } else if (eventType == PostgresChangeEvent.update) {
+          type = RealTimeEventType.commentUpdated;
+          data = payload.newRecord;
+        } else if (eventType == PostgresChangeEvent.delete) {
+          type = RealTimeEventType.commentDeleted;
+          data = payload.oldRecord;
+        } else {
+          return;
+        }
+
+        if (data != null && !controller.isClosed) {
+          final comment = CommentModel.fromJson(data);
+          
+          if (type == RealTimeEventType.commentDeleted) {
+            localCacheSource.deleteComment(comment.id);
+          } else {
+            localCacheSource.updateComment(comment);
+          }
+          
+          controller.add(RealTimeEvent(type, comment));
+        }
+      },
+    ).subscribe();
+
+    controller.onCancel = () {
+      _supabase.removeChannel(channel);
+      controller.close();
+    };
+
+    return MergeStream([simulatorStream, controller.stream]);
   }
 }

@@ -7,6 +7,7 @@ abstract class BoardMemberRemoteDataSource {
     required String boardId,
     required String userId,
     required String role,
+    required DateTime joinedAt,
   });
 
   Future<void> removeBoardMember({
