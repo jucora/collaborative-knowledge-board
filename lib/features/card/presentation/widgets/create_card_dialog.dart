@@ -62,20 +62,6 @@ class _CreateCardDialogState
                 maxLines: 3,
               ),
               const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _commentController,
-                      decoration: const InputDecoration(labelText: 'Add comment'),
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.add),
-                    onPressed: _addComment,
-                  )
-                ],
-              ),
               const SizedBox(height: 8),
               Wrap(
                 spacing: 6,
@@ -119,28 +105,6 @@ class _CreateCardDialogState
         ),
       ],
     );
-  }
-
-  void _addComment() {
-    final text = _commentController.text.trim();
-    if (text.isEmpty) return;
-    
-    String author = 'Fake User';
-    if (!useFakeData) {
-      author = Supabase.instance.client.auth.currentUser?.email ?? 'anonymous';
-    }
-
-    final newComment = Comment(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      content: text,
-      createdAt: DateTime.now(),
-      cardId: widget.columnId,
-      authorId: author,
-    );
-    setState(() {
-      _comments.add(newComment);
-      _commentController.clear();
-    });
   }
 
   Future<void> _pickDate() async {
