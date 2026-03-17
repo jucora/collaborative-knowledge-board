@@ -8,6 +8,7 @@ import '../../../../core/services/real_time_service.dart';
 import '../../domain/entities/board.dart';
 import '../../domain/repositories/board_repository.dart';
 import '../datasources/board_remote_datasource.dart';
+import '../datasources/fake_board_datasource.dart';
 import '../models/board_model.dart';
 
 class BoardRepositoryImpl implements BoardRepository {
@@ -28,11 +29,12 @@ class BoardRepositoryImpl implements BoardRepository {
       // 1. Intentamos traer de Supabase para refrescar la caché
       try {
         final remoteBoards = await remoteDataSource.getBoards();
-        // Actualizamos la caché local
+        
+        // Sincronización completa de la caché:
+        // Primero eliminamos tableros que ya no están en el servidor (opcional según política)
+        // Y añadimos/actualizamos los nuevos.
         for (var board in remoteBoards) {
-          // Nota: Si no hay update en el datasource de board, 
-          // deberíamos asegurar que el FakeBoardDataSource maneje consistencia.
-          // Por simplicidad, asumimos que createBoard con mismo ID actualiza o lo manejamos aquí.
+           await _updateLocalCache(board);
         }
       } catch (_) {}
 
@@ -50,20 +52,24 @@ class BoardRepositoryImpl implements BoardRepository {
     required String description,
   }) async {
     try {
-      // 1. Local
-      final localBoard = await localCacheSource.createBoard(
-        title: title,
-        description: description,
-      );
-
-      // 2. Remoto
+      // 1. Remoto PRIMERO para obtener el ID real de Supabase (UUID)
+      // En Boards, como es la raíz, preferimos tener el ID real pronto.
       try {
         final remoteBoard = await remoteDataSource.createBoard(
           title: title,
           description: description,
         );
+        
+        // 2. Guardamos en la caché local con el ID real
+        await _updateLocalCache(remoteBoard);
+        
         return Right(remoteBoard);
       } catch (e) {
+        // Si falla el remoto (offline), creamos uno local temporal
+        final localBoard = await localCacheSource.createBoard(
+          title: title,
+          description: description,
+        );
         return Right(localBoard);
       }
     } catch (e) {
@@ -81,6 +87,21 @@ class BoardRepositoryImpl implements BoardRepository {
       return const Right(null);
     } catch (e) {
       return Left(ExceptionHandler.handle(e));
+    }
+  }
+
+  // Helper para actualizar la caché local sin duplicados
+  Future<void> _updateLocalCache(Board board) async {
+    // Como el FakeBoardDataSource no tiene updateBoard, lo manejamos aquí
+    // borrando y añadiendo si es necesario, o confiando en el datasource.
+    if (localCacheSource is FakeBoardDataSource) {
+       final db = (localCacheSource as FakeBoardDataSource).database;
+       final index = db?.boards.indexWhere((b) => b.id == board.id) ?? -1;
+       if (index != -1) {
+         db?.boards[index] = board;
+       } else {
+         db?.boards.add(board);
+       }
     }
   }
 
@@ -118,6 +139,8 @@ class BoardRepositoryImpl implements BoardRepository {
           
           if (type == RealTimeEventType.boardDeleted) {
             localCacheSource.deleteBoard(board.id);
+          } else {
+            _updateLocalCache(board);
           }
           
           controller.add(RealTimeEvent(type, board));

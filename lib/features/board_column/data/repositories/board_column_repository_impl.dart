@@ -6,6 +6,7 @@ import '../../../../core/error/exception_handler.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../core/services/real_time_service.dart';
 import '../datasources/board_column_remote_datasource.dart';
+import '../datasources/fake_board_column_datasource.dart';
 import '../../domain/entities/board_column.dart';
 import '../../domain/repositories/board_column_repository.dart';
 import '../models/board_column_model.dart';
@@ -28,7 +29,7 @@ class BoardColumnRepositoryImpl implements BoardColumnRepository {
       try {
         final remoteCols = await remoteDataSource.getBoardColumns(boardId);
         for (var col in remoteCols) {
-          await localCacheSource.updateBoardColumn(col);
+          await _updateLocalCache(col);
         }
       } catch (_) {}
 
@@ -46,20 +47,25 @@ class BoardColumnRepositoryImpl implements BoardColumnRepository {
     required int position,
   }) async {
     try {
-      final localCol = await localCacheSource.createBoardColumn(
-        boardId: boardId,
-        title: title,
-        position: position,
-      );
-
+      // 1. Remoto PRIMERO para obtener el ID real de Supabase (UUID)
       try {
         final remoteCol = await remoteDataSource.createBoardColumn(
           boardId: boardId,
           title: title,
           position: position,
         );
+        
+        // 2. Guardamos en la caché local con el ID real
+        await _updateLocalCache(remoteCol);
+        
         return Right(remoteCol);
       } catch (e) {
+        // Fallback offline
+        final localCol = await localCacheSource.createBoardColumn(
+          boardId: boardId,
+          title: title,
+          position: position,
+        );
         return Right(localCol);
       }
     } catch (e) {
@@ -71,7 +77,7 @@ class BoardColumnRepositoryImpl implements BoardColumnRepository {
   Future<Either<Failure, void>> updateBoardColumn(BoardColumn column) async {
     final model = BoardColumnModel.fromEntity(column);
     try {
-      await localCacheSource.updateBoardColumn(model);
+      await _updateLocalCache(model);
       try {
         await remoteDataSource.updateBoardColumn(model);
       } catch (_) {}
@@ -91,6 +97,19 @@ class BoardColumnRepositoryImpl implements BoardColumnRepository {
       return const Right(null);
     } catch (e) {
       return Left(ExceptionHandler.handle(e));
+    }
+  }
+
+  // Helper para actualizar la caché local sin duplicados
+  Future<void> _updateLocalCache(BoardColumn col) async {
+    if (localCacheSource is FakeBoardColumnDatasource) {
+       final db = (localCacheSource as FakeBoardColumnDatasource).database;
+       final index = db?.columns.indexWhere((c) => c.id == col.id) ?? -1;
+       if (index != -1) {
+         db?.columns[index] = col;
+       } else {
+         db?.columns.add(col);
+       }
     }
   }
 
@@ -129,7 +148,7 @@ class BoardColumnRepositoryImpl implements BoardColumnRepository {
           if (type == RealTimeEventType.columnDeleted) {
             localCacheSource.deleteBoardColumn(col.id);
           } else {
-            localCacheSource.updateBoardColumn(col);
+            _updateLocalCache(col);
           }
           
           controller.add(RealTimeEvent(type, col));

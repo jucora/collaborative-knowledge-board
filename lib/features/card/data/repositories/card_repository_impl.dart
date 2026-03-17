@@ -5,6 +5,7 @@ import 'package:rxdart/rxdart.dart';
 import '../../../../core/error/exception_handler.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../core/services/real_time_service.dart';
+import '../datasources/fake_card_datasource.dart';
 import '../../domain/entities/card_item.dart';
 import '../../domain/repositories/card_repository.dart';
 import '../datasources/card_remote_datasource.dart';
@@ -30,13 +31,11 @@ class CardRepositoryImpl implements CardRepository {
         final remoteCards = await remoteDataSource.getCards(columnId);
         // Actualizamos la caché local con lo que diga el servidor
         for (var card in remoteCards) {
-          await localCacheSource.updateCard(card);
+          await _updateLocalCache(card);
         }
-      } catch (_) {
-        // Si falla el remoto (offline), ignoramos y seguimos con la caché
-      }
+      } catch (_) {}
 
-      // 2. Devolvemos lo que tengamos en la caché local (siempre rápido)
+      // 2. Devolvemos lo que tengamos en la caché local
       final localCards = await localCacheSource.getCards(columnId);
       return Right(localCards);
     } catch (e) {
@@ -55,18 +54,7 @@ class CardRepositoryImpl implements CardRepository {
     required DateTime createdAt,
   }) async {
     try {
-      // 1. Guardar en Caché Local inmediatamente
-      final localCard = await localCacheSource.createCard(
-        id: id,
-        columnId: columnId,
-        title: title,
-        description: description,
-        position: position,
-        createdBy: createdBy,
-        createdAt: createdAt,
-      );
-
-      // 2. Intentar guardar en Supabase
+      // Intentamos remoto primero para asegurar consistencia de IDs
       try {
         final remoteCard = await remoteDataSource.createCard(
           id: id,
@@ -77,10 +65,20 @@ class CardRepositoryImpl implements CardRepository {
           createdBy: createdBy,
           createdAt: createdAt,
         );
+        
+        await _updateLocalCache(remoteCard);
         return Right(remoteCard);
       } catch (e) {
-        // Si falla el remoto, devolvemos la versión local. 
-        // El SyncService se encargará de la subida real luego.
+        // Fallback offline
+        final localCard = await localCacheSource.createCard(
+          id: id,
+          columnId: columnId,
+          title: title,
+          description: description,
+          position: position,
+          createdBy: createdBy,
+          createdAt: createdAt,
+        );
         return Right(localCard);
       }
     } catch (e) {
@@ -109,16 +107,11 @@ class CardRepositoryImpl implements CardRepository {
     );
 
     try {
-      // 1. Actualizar caché local
-      await localCacheSource.updateCard(cardModel);
-
-      // 2. Intentar remoto
+      await _updateLocalCache(cardModel);
       try {
-        final model = await remoteDataSource.updateCard(cardModel);
-        return Right(model);
-      } catch (e) {
-        return Right(cardModel);
-      }
+        await remoteDataSource.updateCard(cardModel);
+      } catch (_) {}
+      return Right(cardModel);
     } catch (e) {
       return Left(ExceptionHandler.handle(e));
     }
@@ -134,6 +127,19 @@ class CardRepositoryImpl implements CardRepository {
       return const Right(null);
     } catch (e) {
       return Left(ExceptionHandler.handle(e));
+    }
+  }
+
+  // Helper para asegurar sincronización manual de la caché
+  Future<void> _updateLocalCache(CardItem card) async {
+    if (localCacheSource is FakeCardDatasource) {
+       final db = (localCacheSource as FakeCardDatasource).database;
+       final index = db.cards.indexWhere((c) => c.id == card.id);
+       if (index != -1) {
+         db.cards[index] = card;
+       } else {
+         db.cards.add(card);
+       }
     }
   }
 
@@ -172,7 +178,7 @@ class CardRepositoryImpl implements CardRepository {
           if (type == RealTimeEventType.cardDeleted) {
             localCacheSource.deleteCard(card.id);
           } else {
-            localCacheSource.updateCard(card);
+            _updateLocalCache(card);
           }
           
           controller.add(RealTimeEvent(type, card));

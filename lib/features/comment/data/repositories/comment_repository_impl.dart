@@ -5,6 +5,7 @@ import 'package:rxdart/rxdart.dart';
 import '../../../../core/error/exception_handler.dart';
 import '../../../../core/error/failures.dart';
 import '../../../../core/services/real_time_service.dart';
+import '../datasources/fake_comment_datasource.dart';
 import '../../domain/entities/comment.dart';
 import '../../domain/repositories/comment_repository.dart';
 import '../datasources/comment_remote_datasource.dart';
@@ -28,7 +29,7 @@ class CommentRepositoryImpl implements CommentRepository {
       try {
         final remoteComments = await remoteDataSource.getComments(cardId);
         for (var comment in remoteComments) {
-          await localCacheSource.updateComment(comment);
+          await _updateLocalCache(comment);
         }
       } catch (_) {}
 
@@ -60,11 +61,16 @@ class CommentRepositoryImpl implements CommentRepository {
     );
 
     try {
-      await localCacheSource.addComment(comment);
+      // Intentamos remoto primero para IDs consistentes
       try {
-        await remoteDataSource.addComment(comment);
-      } catch (_) {}
-      return const Right(null);
+        final remoteComment = await remoteDataSource.addComment(comment);
+        await _updateLocalCache(remoteComment);
+        return const Right(null);
+      } catch (e) {
+        // Fallback offline
+        await localCacheSource.addComment(comment);
+        return const Right(null);
+      }
     } catch (e) {
       return Left(ExceptionHandler.handle(e));
     }
@@ -88,7 +94,7 @@ class CommentRepositoryImpl implements CommentRepository {
     );
 
     try {
-      await localCacheSource.updateComment(partialUpdate);
+      await _updateLocalCache(partialUpdate);
       try {
         await remoteDataSource.updateComment(partialUpdate);
       } catch (_) {}
@@ -108,6 +114,19 @@ class CommentRepositoryImpl implements CommentRepository {
       return const Right(null);
     } catch (e) {
       return Left(ExceptionHandler.handle(e));
+    }
+  }
+
+  // Helper para sincronización de caché manual
+  Future<void> _updateLocalCache(Comment comment) async {
+    if (localCacheSource is FakeCommentDataSource) {
+       final db = (localCacheSource as FakeCommentDataSource).database;
+       final index = db.comments.indexWhere((c) => c.id == comment.id);
+       if (index != -1) {
+         db.comments[index] = comment;
+       } else {
+         db.comments.add(comment);
+       }
     }
   }
 
@@ -146,7 +165,7 @@ class CommentRepositoryImpl implements CommentRepository {
           if (type == RealTimeEventType.commentDeleted) {
             localCacheSource.deleteComment(comment.id);
           } else {
-            localCacheSource.updateComment(comment);
+            _updateLocalCache(comment);
           }
           
           controller.add(RealTimeEvent(type, comment));
