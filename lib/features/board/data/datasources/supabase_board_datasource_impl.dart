@@ -5,8 +5,11 @@ import 'board_remote_datasource.dart';
 class SupabaseBoardDataSourceImpl implements BoardRemoteDataSource {
   final SupabaseClient _client = Supabase.instance.client;
 
+
   @override
   Future<List<BoardModel>> getBoards() async {
+    // Supabase will automatically filter thanks to RLS policies
+    // returning only the dashboards where the user has access.
     final response = await _client
         .from('boards')
         .select('*, columns:columns(*, cards:cards(*)), members:board_members(*)');

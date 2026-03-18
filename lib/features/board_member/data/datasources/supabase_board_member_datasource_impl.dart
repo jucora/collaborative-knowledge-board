@@ -22,6 +22,7 @@ class SupabaseBoardMemberDataSourceImpl implements BoardMemberRemoteDataSource {
     required String boardId,
     required String userId,
     required String role,
+    required DateTime joinedAt,
   }) async {
     final response = await _client
         .from('board_members')
@@ -29,6 +30,7 @@ class SupabaseBoardMemberDataSourceImpl implements BoardMemberRemoteDataSource {
           'board_id': boardId,
           'user_id': userId,
           'role': role,
+          'joined_at': joinedAt.toIso8601String(),
         })
         .select()
         .single();

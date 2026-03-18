@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/services/real_time_service.dart';
 import '../../../../core/services/sync_service.dart';
+import '../../../comment/domain/entities/comment.dart';
+import '../../../comment/presentation/providers/comment_notifier_provider.dart';
 import '../../domain/entities/card_item.dart';
 import '../../data/models/card_item_model.dart';
 import 'card_repository_provider.dart';
@@ -16,7 +18,6 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
   String? _previewCardId;
   int? _previewIndex;
   
-  // Track IDs of cards updated locally to avoid UI jumps during sync
   final Set<String> _locallyUpdatedIds = {};
 
   @override
@@ -32,7 +33,11 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
 
     return result.fold(
           (failure) => throw Exception(failure.message),
-          (cards) => cards.map((e) => CardItemModel.fromEntity(e)).toList(),
+          (cards) {
+            final List<CardItem> items = cards.map((e) => e).toList();
+            items.sort((a, b) => a.position.compareTo(b.position));
+            return items;
+          }
     );
   }
 
@@ -46,7 +51,7 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
       _previewIndex = newIndex;
       _previewCardId = draggedCard.id;
 
-      final cardToInsert = CardItemModel.fromEntity(draggedCard);
+      final cardToInsert = draggedCard.copyWith(columnId: columnId);
       listWithoutDragged.insert(newIndex, cardToInsert);
       
       return listWithoutDragged;
@@ -68,6 +73,14 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
       return;
     }
 
+    if (event.type == RealTimeEventType.cardDeleted) {
+      final String deletedId = (event.data is CardItem) ? (event.data as CardItem).id : event.data.toString();
+      _removeCardLocally(deletedId);
+      return;
+    }
+
+    if (event.data is! CardItem) return;
+
     final card = event.data as CardItem;
     if (_locallyUpdatedIds.contains(card.id)) return;
 
@@ -75,7 +88,6 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     final isPending = syncService.pendingActions.any(
       (a) => a.data is CardItem && (a.data as CardItem).id == card.id
     );
-    
     if (isPending) return;
 
     switch (event.type) {
@@ -87,9 +99,6 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
       case RealTimeEventType.cardUpdated:
         _updateCardLocally(card);
         break;
-      case RealTimeEventType.cardDeleted:
-        _removeCardLocally(card.id);
-        break;
       default:
         break;
     }
@@ -99,15 +108,13 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     state = state.whenData((cards) {
       final belongsToThisColumn = updatedCard.columnId == columnId;
       final existsLocally = cards.any((c) => c.id == updatedCard.id);
-      
-      final cardModel = CardItemModel.fromEntity(updatedCard);
 
       if (belongsToThisColumn) {
         if (existsLocally) {
-          return cards.map((c) => c.id == updatedCard.id ? cardModel : c).toList()
+          return cards.map((c) => c.id == updatedCard.id ? updatedCard : c).toList()
             ..sort((a, b) => a.position.compareTo(b.position));
         } else {
-          return _addOrMergeCard(cards, cardModel);
+          return _addOrMergeCard(cards, updatedCard);
         }
       } else {
         if (existsLocally) {
@@ -131,11 +138,12 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     required int position,
     required String createdBy,
     required DateTime createdAt,
+    List<Comment> initialComments = const [],
   }) async {
     final isOnline = ref.read(realTimeServiceProvider).isConnected;
     final syncService = ref.read(syncServiceProvider);
 
-    final card = CardItemModel(
+    final card = CardItem(
       id: id,
       columnId: columnId,
       title: title,
@@ -146,6 +154,17 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     );
 
     addCardLocally(card);
+
+    // Save initial comments
+    for (var comment in initialComments) {
+      ref.read(commentNotifierProvider(id).notifier).createComment(
+        id: comment.id,
+        cardId: id,
+        authorId: comment.authorId,
+        content: comment.content,
+        createdAt: comment.createdAt,
+      );
+    }
 
     if (isOnline) {
       final useCase = ref.read(createCardUseCaseProvider);
@@ -160,16 +179,21 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
       );
       
       result.fold(
-        (failure) => _removeCardLocally(id),
+        (failure) {
+          if (failure.code == '23503') {
+             syncService.addAction('createCard', CardItemModel.fromEntity(card));
+          } else {
+             _removeCardLocally(id);
+          }
+        },
         (realCard) {
           state = state.whenData((cards) {
-            final List<CardItem> newList = cards.map((c) => c.id == id ? CardItemModel.fromEntity(realCard) : c).toList();
-            return newList;
+            return cards.map((c) => c.id == id ? realCard : c).toList();
           });
         }
       );
     } else {
-      syncService.addAction('createCard', card);
+      syncService.addAction('createCard', CardItemModel.fromEntity(card));
     }
   }
 
@@ -182,12 +206,19 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
 
     if (isOnline) {
       final useCase = ref.read(updateCardUseCaseProvider);
-      await useCase(card);
+      final result = await useCase(card);
+      
+      result.fold(
+        (failure) {
+           syncService.addAction('updateCard', CardItemModel.fromEntity(card));
+        },
+        (_) => null,
+      );
     } else {
       syncService.addAction('updateCard', CardItemModel.fromEntity(card));
     }
     
-    Future.delayed(const Duration(milliseconds: 1000), () {
+    Future.delayed(const Duration(milliseconds: 1500), () {
       _locallyUpdatedIds.remove(card.id);
     });
   }
@@ -231,11 +262,11 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
   void addCardLocally(CardItem card) {
     state = state.whenData((cards) {
       if (cards.any((c) => c.id == card.id)) return cards;
-      return _addOrMergeCard(cards, CardItemModel.fromEntity(card));
+      return _addOrMergeCard(cards, card);
     });
   }
 
-  List<CardItem> _addOrMergeCard(List<CardItem> cards, CardItemModel newCard) {
+  List<CardItem> _addOrMergeCard(List<CardItem> cards, CardItem newCard) {
     final optimisticIndex = cards.indexWhere((c) => 
       c.title == newCard.title && 
       c.position == newCard.position && 
@@ -252,24 +283,8 @@ class CardNotifier extends FamilyAsyncNotifier<List<CardItem>, String> {
     newList.sort((a, b) => a.position.compareTo(b.position));
     return newList;
   }
-
-  Future<void> reorderCards(int oldIndex, int newIndex) async {
-    final cards = state.value;
-    if (cards == null) return;
-
-    if (newIndex > oldIndex) {
-      newIndex -= 1;
-    }
-
-    final List<CardItem> updatedList = List.from(cards);
-    final item = updatedList.removeAt(oldIndex);
-    updatedList.insert(newIndex, item);
-
-    state = AsyncData(updatedList);
-
-    for (int i = 0; i < updatedList.length; i++) {
-      final card = updatedList[i].copyWith(position: i);
-      await updateCard(card);
-    }
+  
+  void moveFromHere(String cardId) {
+     _removeCardLocally(cardId);
   }
 }

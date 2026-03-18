@@ -1,21 +1,40 @@
+import 'dart:async';
 import 'package:dartz/dartz.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:rxdart/rxdart.dart';
 import '../../../../core/error/exception_handler.dart';
 import '../../../../core/error/failures.dart';
+import '../../../../core/services/real_time_service.dart';
 import '../datasources/board_column_remote_datasource.dart';
+import '../datasources/fake_board_column_datasource.dart';
 import '../../domain/entities/board_column.dart';
 import '../../domain/repositories/board_column_repository.dart';
 import '../models/board_column_model.dart';
 
 class BoardColumnRepositoryImpl implements BoardColumnRepository {
-  final BoardColumnRemoteDataSource remoteDataSource;
+  final BoardColumnRemoteDataSource remoteDataSource; // Supabase
+  final BoardColumnRemoteDataSource localCacheSource; // FakeDB (Cache)
+  final SupabaseClient _supabase = Supabase.instance.client;
+  final RealTimeService _simulatorService;
 
-  BoardColumnRepositoryImpl(this.remoteDataSource);
+  BoardColumnRepositoryImpl({
+    required this.remoteDataSource,
+    required this.localCacheSource,
+    required RealTimeService simulatorService,
+  }) : _simulatorService = simulatorService;
 
   @override
   Future<Either<Failure, List<BoardColumn>>> getBoardColumns(String boardId) async {
     try {
-      final models = await remoteDataSource.getBoardColumns(boardId);
-      return Right(models);
+      try {
+        final remoteCols = await remoteDataSource.getBoardColumns(boardId);
+        for (var col in remoteCols) {
+          await _updateLocalCache(col);
+        }
+      } catch (_) {}
+
+      final localCols = await localCacheSource.getBoardColumns(boardId);
+      return Right(localCols);
     } catch (e) {
       return Left(ExceptionHandler.handle(e));
     }
@@ -28,12 +47,27 @@ class BoardColumnRepositoryImpl implements BoardColumnRepository {
     required int position,
   }) async {
     try {
-      final model = await remoteDataSource.createBoardColumn(
-        boardId: boardId,
-        title: title,
-        position: position,
-      );
-      return Right(model);
+      // 1. Remoto PRIMERO para obtener el ID real de Supabase (UUID)
+      try {
+        final remoteCol = await remoteDataSource.createBoardColumn(
+          boardId: boardId,
+          title: title,
+          position: position,
+        );
+        
+        // 2. Guardamos en la caché local con el ID real
+        await _updateLocalCache(remoteCol);
+        
+        return Right(remoteCol);
+      } catch (e) {
+        // Fallback offline
+        final localCol = await localCacheSource.createBoardColumn(
+          boardId: boardId,
+          title: title,
+          position: position,
+        );
+        return Right(localCol);
+      }
     } catch (e) {
       return Left(ExceptionHandler.handle(e));
     }
@@ -41,10 +75,12 @@ class BoardColumnRepositoryImpl implements BoardColumnRepository {
 
   @override
   Future<Either<Failure, void>> updateBoardColumn(BoardColumn column) async {
+    final model = BoardColumnModel.fromEntity(column);
     try {
-      await remoteDataSource.updateBoardColumn(
-        BoardColumnModel.fromEntity(column),
-      );
+      await _updateLocalCache(model);
+      try {
+        await remoteDataSource.updateBoardColumn(model);
+      } catch (_) {}
       return const Right(null);
     } catch (e) {
       return Left(ExceptionHandler.handle(e));
@@ -54,10 +90,77 @@ class BoardColumnRepositoryImpl implements BoardColumnRepository {
   @override
   Future<Either<Failure, void>> deleteBoardColumn(String columnId) async {
     try {
-      await remoteDataSource.deleteBoardColumn(columnId);
+      await localCacheSource.deleteBoardColumn(columnId);
+      try {
+        await remoteDataSource.deleteBoardColumn(columnId);
+      } catch (_) {}
       return const Right(null);
     } catch (e) {
       return Left(ExceptionHandler.handle(e));
     }
+  }
+
+  // Helper para actualizar la caché local sin duplicados
+  Future<void> _updateLocalCache(BoardColumn col) async {
+    if (localCacheSource is FakeBoardColumnDatasource) {
+       final db = (localCacheSource as FakeBoardColumnDatasource).database;
+       final index = db?.columns.indexWhere((c) => c.id == col.id) ?? -1;
+       if (index != -1) {
+         db?.columns[index] = col;
+       } else {
+         db?.columns.add(col);
+       }
+    }
+  }
+
+  @override
+  Stream<RealTimeEvent> watchBoardColumns() {
+    final simulatorStream = _simulatorService.eventStream;
+
+    final controller = StreamController<RealTimeEvent>();
+    final channel = _supabase.channel('public:board_columns');
+
+    channel.onPostgresChanges(
+      event: PostgresChangeEvent.all,
+      schema: 'public',
+      table: 'board_columns',
+      callback: (payload) {
+        final eventType = payload.eventType;
+        RealTimeEventType type;
+        Map<String, dynamic>? data;
+
+        if (eventType == PostgresChangeEvent.insert) {
+          type = RealTimeEventType.columnCreated;
+          data = payload.newRecord;
+        } else if (eventType == PostgresChangeEvent.update) {
+          type = RealTimeEventType.columnUpdated;
+          data = payload.newRecord;
+        } else if (eventType == PostgresChangeEvent.delete) {
+          type = RealTimeEventType.columnDeleted;
+          data = payload.oldRecord;
+        } else {
+          return;
+        }
+
+        if (data != null && !controller.isClosed) {
+          final col = BoardColumnModel.fromJson(data);
+          
+          if (type == RealTimeEventType.columnDeleted) {
+            localCacheSource.deleteBoardColumn(col.id);
+          } else {
+            _updateLocalCache(col);
+          }
+          
+          controller.add(RealTimeEvent(type, col));
+        }
+      },
+    ).subscribe();
+
+    controller.onCancel = () {
+      _supabase.removeChannel(channel);
+      controller.close();
+    };
+
+    return MergeStream([simulatorStream, controller.stream]);
   }
 }

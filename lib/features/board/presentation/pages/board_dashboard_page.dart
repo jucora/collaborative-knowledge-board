@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../../core/widgets/common/theme_toggle_button.dart';
+import '../../../auth/presentation/providers/auth_providers.dart';
+import '../../domain/entities/board.dart';
 import '../providers/board_notifier.dart';
 
 class BoardDashboardPage extends ConsumerWidget {
@@ -10,41 +13,60 @@ class BoardDashboardPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final boardsAsync = ref.watch(boardNotifierProvider);
+    final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Boards'),
-        actions: [
-          const ThemeToggleButton(),
-          IconButton(
-            icon: const Icon(Icons.logout_rounded),
-            onPressed: () => _showLogoutDialog(context, ref),
-            tooltip: "Logout",
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Workspace'),
+          actions: [
+            const ThemeToggleButton(),
+            IconButton(
+              icon: const Icon(Icons.logout_rounded),
+              onPressed: () => _showLogoutDialog(context, ref),
+              tooltip: "Logout",
+            ),
+            const SizedBox(width: 8),
+          ],
+          bottom: const TabBar(
+            labelColor: Colors.cyanAccent,
+            unselectedLabelColor: Colors.white,
+            indicatorColor: Colors.white,
+            tabs: [
+              Tab(text: "My Boards", icon: Icon(Icons.person_rounded)),
+              Tab(text: "Shared with Me", icon: Icon(Icons.group_rounded)),
+            ],
           ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: boardsAsync.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, _) => Center(child: Text(error.toString())),
-        data: (boards) {
-          if (boards.isEmpty) {
-            return const Center(child: Text("No boards found. Click + to create one."));
-          }
-          return ListView.builder(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            itemCount: boards.length,
-            itemBuilder: (context, index) {
-              final board = boards[index];
-              return _BoardCard(board: board);
-            },
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _showCreateBoardDialog(context, ref),
-        label: const Text("New Board"),
-        icon: const Icon(Icons.add_rounded),
+        ),
+        body: boardsAsync.when(
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, _) => Center(child: Text(error.toString())),
+          data: (boards) {
+            // board filter
+            final myBoards = boards.where((b) => b.ownerId == currentUserId).toList();
+            final sharedBoards = boards.where((b) => b.ownerId != currentUserId).toList();
+
+            return TabBarView(
+              children: [
+                _BoardList(
+                  boards: myBoards,
+                  emptyMessage: "You haven't created any boards yet.",
+                  onAction: () => _showCreateBoardDialog(context, ref),
+                ),
+                _BoardList(
+                  boards: sharedBoards,
+                  emptyMessage: "No boards have been shared with you yet.",
+                ),
+              ],
+            );
+          },
+        ),
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () => _showCreateBoardDialog(context, ref),
+          label: const Text("New Board"),
+          icon: const Icon(Icons.add_rounded),
+        ),
       ),
     );
   }
@@ -106,8 +128,7 @@ class BoardDashboardPage extends ConsumerWidget {
           ),
           TextButton(
             onPressed: () {
-              // Note: Make sure authNotifierProvider is available in your auth_providers.dart
-              // ref.read(authNotifierProvider.notifier).logout(); 
+              ref.read(authNotifierProvider.notifier).logout();
               Navigator.pop(context);
               context.go('/login');
             },
@@ -119,8 +140,52 @@ class BoardDashboardPage extends ConsumerWidget {
   }
 }
 
+class _BoardList extends StatelessWidget {
+  final List<Board> boards;
+  final String emptyMessage;
+  final VoidCallback? onAction;
+
+  const _BoardList({
+    required this.boards,
+    required this.emptyMessage,
+    this.onAction,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (boards.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.dashboard_customize_outlined, size: 64, color: Colors.grey.shade300),
+            const SizedBox(height: 16),
+            Text(emptyMessage, style: TextStyle(color: Colors.grey.shade600)),
+            if (onAction != null) ...[
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: onAction,
+                child: const Text("Create your first board"),
+              ),
+            ]
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+      itemCount: boards.length,
+      itemBuilder: (context, index) {
+        final board = boards[index];
+        return _BoardCard(board: board);
+      },
+    );
+  }
+}
+
 class _BoardCard extends StatelessWidget {
-  final dynamic board;
+  final Board board;
   const _BoardCard({required this.board});
 
   @override

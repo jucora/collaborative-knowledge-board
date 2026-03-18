@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
+import '../../features/auth/presentation/providers/auth_providers.dart';
 import '../../features/board/presentation/pages/board_dashboard_page.dart';
 import '../../features/board/presentation/pages/board_detail_page.dart';
 import '../storage/secure_storage_service.dart';
-import '../../features/auth/presentation/providers/auth_notifier.dart';
 
 final appRouterProvider = Provider<GoRouter>((ref) {
   final secureStorage = ref.read(secureStorageProvider);
