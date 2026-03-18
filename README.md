@@ -50,6 +50,15 @@ Instead of blocking the UI waiting for server responses, the system operates as 
 ### 3. Real-Time Integration
 Using Supabase's real-time capabilities, the app listens for changes made by other collaborators. The `Local-First` logic is smart enough to distinguish between local optimistic updates and incoming remote changes to prevent unnecessary UI flickers.
 
+## 🧪 Testing Excellence
+
+The project maintains a high standard of quality through a comprehensive testing suite that ensures reliability in both online and offline scenarios.
+
+*   **Isolated Widget Testing:** UI components are tested in total isolation using Riverpod `overrides`. By injecting "Fake" Notifiers, we verify UI behavior without requiring a live Supabase instance or network connectivity.
+*   **End-to-End Integration Flow:** A complete "Login to Dashboard" flow is implemented to verify authentication logic, routing redirecciones (GoRouter), and data rendering.
+*   **Deterministic Network Mocks:** Advanced testing techniques are used to mock low-level Flutter `MethodChannels` (like `shared_preferences`), ensuring that the Supabase initialization logic behaves correctly in a headless test environment.
+*   **Clean Architecture Validation:** Tests are decoupled from data implementations, ensuring that business logic remains valid regardless of whether the app is using the real backend or in-memory mocks.
+
 ## 🛠️ Development Tools
 
 ### Real-Time Simulator
