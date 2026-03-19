@@ -1,5 +1,7 @@
 # Collaborative Knowledge Board
 
+![Board Preview](assets/images/board-login-image.jpg)
+
 A modern, high-performance task management application built with Flutter, designed for seamless team collaboration. This project implements a sophisticated **Offline-First (Local-First)** architecture with real-time synchronization capabilities.
 
 ---

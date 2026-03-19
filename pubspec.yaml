@@ -97,6 +97,6 @@ flutter:
   uses-material-design: true
 
   # Assets (cuando agregues)
-  #assets:
-    #- assets/images/
+  assets:
+    - assets/images/
     #- assets/icons/
